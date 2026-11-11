@@ -48,10 +48,29 @@ These are separate examples. See [API](docs/api.md) for input overloads, excepti
 - `OS/2` metadata: vendor identifier and raw `fsType` embedding flags.
 - Independent table states, stable diagnostic codes, bounded processing and cancellation.
 - File, stream, byte array, span and memory inputs; immutable results.
+- Separate license analysis of every available name ID 13/14 record, with stable rules and source evidence.
 
 Reading starts at the supplied input origin. The library does not search for embedded fonts. “Complete” describes supported metadata extraction, not validation of outlines, checksums or licensing. See [formats and boundaries](docs/formats.md).
 
-WOFF, WOFF2 and recognized EOT headers currently return `Unsupported`. License interpretation by a separate `FontLicenseAnalyzer` is not implemented. The `Font.Metadata.Tool` package currently provides only `--help` and `--version`; CLI inspection and plain/JSON reports are not implemented yet.
+WOFF, WOFF2 and recognized EOT headers currently return `Unsupported`. The `Font.Metadata.Tool` package currently provides only `--help` and `--version`; CLI inspection and plain/JSON reports are not implemented yet.
+
+## Analyze license evidence
+
+```csharp
+using System;
+using Fonts.Metadata;
+
+FontMetadata metadata = FontMetadataReader.ReadFile("example.ttf");
+foreach(FontMetadata.Face face in metadata.Faces) {
+    FontLicenseAnalysis analysis = FontLicenseAnalyzer.Analyze(face);
+    Console.WriteLine($"Complete name source: {analysis.IsSourceComplete}");
+    foreach(FontLicenseHint hint in analysis.Hints) {
+        Console.WriteLine($"{hint.IdentifierKind}: {hint.Identifier} ({hint.RuleId}, record {hint.SourceRecord.Index})");
+    }
+}
+```
+
+The analyzer performs no I/O and preserves independent and conflicting indications. It recognizes a finite vocabulary of individual SPDX IDs, names, families and URLs; it does not simplify compound expressions or exceptions. Empty hints do not prove that a font has no license. These are source indications, not permission or distribution decisions. See [license analysis](docs/licensing.md) for the exact rules and limitations.
 
 ## Requirements
 
@@ -90,6 +109,7 @@ Copyright (c) 2026 Dmitry Garavsky. Font.Metadata and Font.Metadata.Tool are lic
 - [API and usage](docs/api.md)
 - [Formats and metadata](docs/formats.md)
 - [Statuses and diagnostics](docs/diagnostics.md)
+- [License analysis and evidence](docs/licensing.md)
 - [Command-line behavior](docs/cli.md)
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)

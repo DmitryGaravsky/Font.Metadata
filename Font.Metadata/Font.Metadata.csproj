@@ -4,7 +4,7 @@
     <RootNamespace>Fonts.Metadata</RootNamespace>
     <IsPackable>true</IsPackable>
     <PackageId>Font.Metadata</PackageId>
-    <Description>Read SFNT and TTC font metadata on .NET 10 with partial results, table statuses and structured diagnostics.</Description>
+    <Description>Read SFNT and TTC font metadata on .NET 10 with partial results, structured diagnostics and separate license evidence analysis.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>

@@ -4,7 +4,7 @@ This is the single source of rules for coding agents working in this repository.
 
 ## Scope and current implementation
 
-The library implements SFNT/TTC metadata reading with partial results, per-table statuses and diagnostics. The repository also contains CLI help/version commands, tests, packaging checks and CI. WOFF/WOFF2/EOT reading, embedded search, license analysis and CLI inspection are not implemented yet.
+The library implements SFNT/TTC metadata reading with partial results, per-table statuses and diagnostics. The repository also contains CLI help/version commands, tests, packaging checks and CI. Separate license analysis of decoded name records is implemented. WOFF/WOFF2/EOT reading, embedded search and CLI inspection are not implemented yet.
 
 Work directly in this repository for its authorized tasks. Changes to external consumers require an explicit request. Preserve unrelated concurrent changes.
 
@@ -21,6 +21,7 @@ Keep research, comparisons with original projects and temporary planning outside
 | Current functionality and setup | [README](README.md) |
 | Components, dependencies and types | [Architecture](docs/architecture.md) |
 | Public type surface | [API](docs/api.md) |
+| License evidence and recognition boundaries | [Licensing](docs/licensing.md) |
 | CLI behavior | [CLI](docs/cli.md) |
 | Verification and fixtures | [Testing](docs/testing.md) |
 | Hosted builds | [CI](docs/ci.md) |
@@ -35,7 +36,7 @@ Read only what is relevant to the change. Source code and tests establish implem
 - Target net10.0 only for the library, tool and tests. Use a stable .NET 10 SDK; do not introduce older framework targets or compatibility dependencies.
 - Keep the library independent of the CLI, external scanners, catalogs and SBOM models.
 - Namespace is Fonts.Metadata. Package IDs are Font.Metadata and Font.Metadata.Tool. Metadata models nest one level under FontMetadata: Face, NameRecord and EotHeader.
-- Group library sources by responsibility: Reading for operations/options/limits/exceptions, Reading/Internal for parser implementation, Inspection for outcomes/statuses, and Diagnostics for diagnostic contracts. Keep FontMetadata and FontFormat at the library root. Folder names do not change namespaces: public types stay in Fonts.Metadata and parser helpers in Fonts.Metadata.Internal.
+- Group library sources by responsibility: Reading for operations/options/limits/exceptions, Reading/Internal for parser implementation, Inspection for outcomes/statuses, Diagnostics for diagnostic contracts, and Licensing for evidence analysis (with internal matching helpers under Licensing/Internal). Keep FontMetadata and FontFormat at the library root. Folder names do not change namespaces: public types stay in Fonts.Metadata and parser helpers in Fonts.Metadata.Internal.
 - Keep operations, options and diagnostics independently usable. Do not nest every type in FontMetadata.
 - Public members must serve independent consumers. Keep parsers, buffers, budgets and orchestration internal. Do not widen visibility just for tests; use narrow InternalsVisibleTo access when needed.
 - Use immutable results and collections that do not expose mutable backing storage. Use immutable init-only options, or snapshot any mutable options at operation entry.

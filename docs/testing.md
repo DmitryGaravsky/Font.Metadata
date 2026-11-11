@@ -1,6 +1,6 @@
 # Testing
 
-The suite exercises the public SFNT/TTC reading API, partial recovery, resource limits, packaging and current CLI behavior.
+The suite exercises the public SFNT/TTC reading API, partial recovery, resource limits, license evidence, packaging and current CLI behavior.
 
 ## Available checks
 
@@ -18,10 +18,13 @@ The suite exercises the public SFNT/TTC reading API, partial recovery, resource 
 | Allocation regressions | Long repeated records and shared preferred values, with generous managed-allocation ceilings rather than timing thresholds |
 | Cancellation during parsing | Deterministic cancellation during preferred-name selection through internal test access, without timing races |
 | Robustness | Every truncation of representative inputs and deterministic seeded mutations through the public API |
+| License rules | Every supported ID/name/family and URL; exact context, negations, quotes, versions, compound expressions and URI spoofing |
+| License contract | Original-record identity, duplicates, conflicts, all name statuses, immutable results, cultures and concurrent calls |
+| License robustness | Deep/long rejected inputs without recursion; shared strings with a managed-allocation ceiling; shared TTC source records |
 | CLI | Help aliases, version, unsupported inspection and invalid arguments through a child process |
 | Library package | net10.0 assembly, XML documentation and README; no other framework assets or CLI payload |
 | Package licensing | MIT declaration, author/copyright, project/repository metadata and bundled LICENSE |
-| Isolated consumer | Compile and execute real strict and partial reads against the generated library nupkg |
+| Isolated consumer | Compile and execute real strict/partial reads and complete/partial license analysis against the generated library nupkg, including source identity and immutable hints |
 | Release scripts | Tag validation, checksum failures, draft recovery, asset collisions and no-op retries with a local GitHub CLI substitute |
 | Installed tool | Fresh local package cache/tool path; help and version |
 
@@ -63,4 +66,8 @@ The GitHub publication script is tested with a local command substitute; these c
 
 ## Extending coverage
 
-Parser changes require independent valid/malformed fixtures, bounds, resource-limit and cancellation checks. Keep existing recovery contracts while adding container support. WOFF/WOFF2/EOT decoding, embedded search, license analysis and CLI reports are not implemented or covered as successful operations yet. Future license-analysis tests must preserve evidence and distinguish incomplete input and conflicting hints.
+Parser changes require independent valid/malformed fixtures, bounds, resource-limit and cancellation checks. Keep existing recovery contracts while adding container support. WOFF/WOFF2/EOT decoding, embedded search and CLI reports are not implemented or covered as successful operations yet.
+
+License matching tests use independent expected strings and synthetic name tables, rather than enumerating production dictionaries. Contract tests exercise reader-produced complete/partial faces and all section states; internal construction is reserved for isolated status and stress cases that cannot be represented within name wire limits. Boundary regressions cover continued titles, quoted semicolons, standalone SPDX annotation lines and their rejected continuations. Long-input tests do not use fragile timing assertions. Shared-text allocation tests warm the implementation before measuring with a generous ceiling.
+
+Changes to [license rules](licensing.md) require positive and negative examples, exact RuleId/identifier/kind assertions and original SourceRecord identity. Do not convert arbitrary prose, newer versions or compound expressions into positive cases without a deliberate contract change. Package smoke tests compile every new public type and verify actual evidence through the generated nupkg.
