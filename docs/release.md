@@ -1,6 +1,6 @@
 # Releases
 
-[release.yml](../.github/workflows/release.yml) publishes both NuGet packages and a GitHub Release when a version tag is pushed. Branch commits and pull requests only run CI. There is no manual publication trigger. Local build and preparation scripts never publish.
+[release.yml](../.github/workflows/release.yml) publishes both NuGet packages and a GitHub Release when a version tag is pushed. Pushes to `main` and pull requests run CI without publishing. There is no manual publication trigger. Local build and preparation scripts never publish.
 
 The library reads SFNT/TTC metadata and separately analyzes license evidence from decoded name records. The CLI currently provides help/version; CLI inspection is not implemented. A release workflow does not imply that a public version already exists.
 
