@@ -7,7 +7,7 @@ $version = & (Join-Path $PSScriptRoot 'get-version.ps1') -Tag $Tag
 & (Join-Path $PSScriptRoot 'verify-release-assets.ps1') -Version $version -Directory $Directory
 function Invoke-Gh([string[]] $Arguments) {
     $result = & gh @Arguments
-    if($LASTEXITCODE -ne 0) { throw "GitHub CLI failed: $($Arguments[0..1] -join ' ')" }
+    if($LASTEXITCODE -ne 0) { throw ('GitHub CLI failed: {0}' -f ($Arguments[0..1] -join ' ')) }
     return $result
 }
 $prerelease = $version.Contains('-')
@@ -28,10 +28,10 @@ foreach($file in Get-ChildItem -LiteralPath $Directory -File) {
         Invoke-Gh @('release', 'download', $Tag, '--pattern', $file.Name, '--dir', $download) | Write-Host
         $remote = (Get-FileHash -LiteralPath (Join-Path $download $file.Name) -Algorithm SHA256).Hash
         if($remote -ne (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) {
-            throw "Existing release asset differs: $($file.Name). Assets will not be overwritten."
+            throw ('Existing release asset differs: {0}. Assets will not be overwritten.' -f $file.Name)
         }
     } else {
-        if(-not $release.isDraft) { throw "Published release is missing asset: $($file.Name)" }
+        if(-not $release.isDraft) { throw ('Published release is missing asset: {0}' -f $file.Name) }
         Invoke-Gh @('release', 'upload', $Tag, $file.FullName) | Write-Host
     }
 }
@@ -40,4 +40,4 @@ if($release.isDraft) {
     if($prerelease) { $arguments += '--latest=false' }
     Invoke-Gh $arguments | Write-Host
 }
-Write-Host "GitHub release $Tag is published with the verified assets."
+Write-Host ('GitHub release {0} is published with the verified assets.' -f $Tag)

@@ -7,10 +7,14 @@ using NUnit.Framework;
 namespace Fonts.Metadata.Tool.Tests {
     [TestFixture]
     public sealed class CommandTests {
+        const int ProcessTimeoutMilliseconds = 30_000;
+        const int InspectionUnavailableExitCode = 1, InvalidArgumentsExitCode = 2;
+        const string ProcessTimeoutMessage = "The CLI process did not exit within 30 seconds.";
+
         [TestCase("--help")]
         [TestCase("-h")]
         [TestCase("")]
-        public void HelpReportsTheScaffoldCapabilities(string argument) {
+        public void HelpReportsTheCurrentCapabilities(string argument) {
             var result = Run(argument);
             using(Assert.EnterMultipleScope()) {
                 Assert.That(result.ExitCode, Is.Zero);
@@ -29,10 +33,10 @@ namespace Fonts.Metadata.Tool.Tests {
             }
         }
         [Test]
-        public void InspectionCannotReportSuccessBeforeParsersExist() {
+        public void InspectionCannotReportSuccessBeforeCliInspectionExists() {
             var result = Run("inspect", "does-not-exist.ttf", "--format", "json");
             using(Assert.EnterMultipleScope()) {
-                Assert.That(result.ExitCode, Is.EqualTo(1));
+                Assert.That(result.ExitCode, Is.EqualTo(InspectionUnavailableExitCode));
                 Assert.That(result.Output, Is.Empty);
                 Assert.That(result.Error, Does.Contain("not implemented"));
             }
@@ -41,7 +45,7 @@ namespace Fonts.Metadata.Tool.Tests {
         public void UnknownArgumentsUseStandardError() {
             var result = Run("--unknown");
             using(Assert.EnterMultipleScope()) {
-                Assert.That(result.ExitCode, Is.EqualTo(2));
+                Assert.That(result.ExitCode, Is.EqualTo(InvalidArgumentsExitCode));
                 Assert.That(result.Output, Is.Empty);
                 Assert.That(result.Error, Does.Contain("Unknown arguments"));
             }
@@ -61,9 +65,9 @@ namespace Fonts.Metadata.Tool.Tests {
                 process.Start();
                 Task<string> output = process.StandardOutput.ReadToEndAsync();
                 Task<string> error = process.StandardError.ReadToEndAsync();
-                if(!process.WaitForExit(30000)) {
+                if(!process.WaitForExit(ProcessTimeoutMilliseconds)) {
                     process.Kill(entireProcessTree: true);
-                    throw new TimeoutException("The CLI process did not exit within 30 seconds.");
+                    throw new TimeoutException(ProcessTimeoutMessage);
                 }
                 return (process.ExitCode, output.GetAwaiter().GetResult(), error.GetAwaiter().GetResult());
             }

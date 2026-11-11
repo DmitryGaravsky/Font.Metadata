@@ -1,18 +1,57 @@
 # Font.Metadata
 
-Font.Metadata is a .NET font metadata library with a companion command-line tool. It is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/).
+Font.Metadata is a .NET 10 library for reading font metadata, with a companion command-line project. It is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/).
 
-The current development version provides the package structure and public model type names. **Font parsing and license analysis are not implemented yet.** It does not currently read TTF, OpenType, WOFF or EOT files.
+The current development version reads **SFNT (TrueType/OpenType) and TTC/OTC collections**. It exposes names, vendor identifiers and raw embedding flags, preserves partial results, and reports table status and structured diagnostics.
+
+## Read a font
+
+Package: `Font.Metadata`. Namespace: `Fonts.Metadata`.
+
+```csharp
+using System;
+using Fonts.Metadata;
+
+FontMetadata metadata = FontMetadataReader.ReadFile("example.ttf");
+foreach(FontMetadata.Face face in metadata.Faces) {
+    Console.WriteLine($"{face.Index}: {face.FamilyName} / {face.SubfamilyName}");
+    Console.WriteLine($"License text: {face.LicenseDescription}");
+}
+```
+
+`Read` requires complete supported metadata. Use `Inspect` to retain readable values from damaged or partially supported inputs:
+
+```csharp
+using System;
+using Fonts.Metadata;
+
+FontInspectionResult result = FontMetadataReader.InspectFile("example.ttc");
+Console.WriteLine(result.Status);
+if(result.Metadata is { } metadata) {
+    foreach(var face in metadata.Faces) {
+        Console.WriteLine($"{face.Index}: {face.FamilyName}");
+        Console.WriteLine($"name: {face.NameTableStatus}; OS/2: {face.Os2TableStatus}");
+    }
+}
+foreach(var diagnostic in result.Diagnostics) {
+    Console.WriteLine($"{diagnostic.Code}: {diagnostic.Message}");
+}
+```
+
+These are separate examples. See [API](docs/api.md) for input overloads, exceptions, limits and ownership.
 
 ## Available functionality
 
-- Library package: Font.Metadata.
-- Namespace: Fonts.Metadata.
-- Public model types: FontMetadata, FontMetadata.Face, FontMetadata.NameRecord and FontMetadata.EotHeader.
-- Tool package: Font.Metadata.Tool; command: font-metadata.
-- CLI commands: --help and --version.
+- SFNT flavors: TrueType 1.0, `OTTO`, `true` and `typ1`; TTC versions 1 and 2.
+- `name` table formats 0/1: source records, language tags, Unicode, MacRoman and supported legacy Windows encodings.
+- Preferred identity, attribution, description, URL and license strings.
+- `OS/2` metadata: vendor identifier and raw `fsType` embedding flags.
+- Independent table states, stable diagnostic codes, bounded processing and cancellation.
+- File, stream, byte array, span and memory inputs; immutable results.
 
-The model types currently have no metadata properties or public constructors. They establish the API names without returning fabricated font data. The inspect command reports that inspection is unavailable and exits unsuccessfully.
+Reading starts at the supplied input origin. The library does not search for embedded fonts. “Complete” describes supported metadata extraction, not validation of outlines, checksums or licensing. See [formats and boundaries](docs/formats.md).
+
+WOFF, WOFF2 and recognized EOT headers currently return `Unsupported`. License interpretation by a separate `FontLicenseAnalyzer` is not implemented. The `Font.Metadata.Tool` package currently provides only `--help` and `--version`; CLI inspection and plain/JSON reports are not implemented yet.
 
 ## Requirements
 
@@ -21,7 +60,7 @@ The model types currently have no metadata properties or public constructors. Th
 | Library | .NET 10 |
 | CLI | .NET 10 |
 | Build | .NET 10 SDK and PowerShell 7 |
-| Tests | .NET 10 on Windows, Linux and macOS |
+| CI test matrix | .NET 10 on Windows, Linux and macOS |
 
 The library and tool require .NET 10. The build uses a stable .NET 10 SDK selected by global.json.
 
@@ -31,7 +70,7 @@ The library and tool require .NET 10. The build uses a stable .NET 10 SDK select
 pwsh -File eng/verify.ps1
 ```
 
-This restores dependencies, builds the solution, runs the available NUnit tests, checks C# whitespace, creates local development packages and verifies both a PackageReference consumer and an installed dotnet tool.
+This restores dependencies, builds the solution, runs NUnit and offline release-script tests, checks C# whitespace, creates local development packages and verifies a PackageReference consumer and an installed dotnet tool.
 
 Run the CLI from source:
 
@@ -48,7 +87,9 @@ Copyright (c) 2026 Dmitry Garavsky. Font.Metadata and Font.Metadata.Tool are lic
 
 ## Documentation
 
-- [Current API](docs/api.md)
+- [API and usage](docs/api.md)
+- [Formats and metadata](docs/formats.md)
+- [Statuses and diagnostics](docs/diagnostics.md)
 - [Command-line behavior](docs/cli.md)
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)

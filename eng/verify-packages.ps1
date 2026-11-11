@@ -8,7 +8,7 @@ $Version = & (Join-Path $PSScriptRoot 'get-version.ps1') -Version $Version
 function Invoke-DotNet([string[]] $Arguments) {
     & dotnet @Arguments
     if($LASTEXITCODE -ne 0) {
-        throw "dotnet $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
+        throw ('dotnet {0} failed with exit code {1}.' -f ($Arguments -join ' '), $LASTEXITCODE)
     }
 }
 Push-Location $root
@@ -23,7 +23,7 @@ try {
     $archive = [IO.Compression.ZipFile]::OpenRead($libraryPackage)
     try {
         foreach($entry in @('lib/net10.0/Font.Metadata.dll', 'lib/net10.0/Font.Metadata.xml', 'README.md')) {
-            if($null -eq $archive.GetEntry($entry)) { throw "Missing library package entry: $entry" }
+            if($null -eq $archive.GetEntry($entry)) { throw ('Missing library package entry: {0}' -f $entry) }
         }
         if(@($archive.Entries | Where-Object {
             $_.FullName -like 'lib/*' -and $_.FullName -notlike 'lib/net10.0/*'
@@ -42,26 +42,26 @@ try {
         $package = [IO.Compression.ZipFile]::OpenRead((Join-Path $feed "$id.$Version.nupkg"))
         try {
             $licenseEntry = $package.GetEntry('LICENSE')
-            if($null -eq $licenseEntry) { throw "Missing LICENSE in $id" }
+            if($null -eq $licenseEntry) { throw ('Missing LICENSE in {0}' -f $id) }
             $reader = [IO.StreamReader]::new($licenseEntry.Open())
             try { $actualLicense = $reader.ReadToEnd() } finally { $reader.Dispose() }
-            if($actualLicense -cne $expectedLicense) { throw "License text mismatch in $id" }
+            if($actualLicense -cne $expectedLicense) { throw ('License text mismatch in {0}' -f $id) }
             $reader = [IO.StreamReader]::new($package.GetEntry("$id.nuspec").Open())
             try { [xml] $spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
             if($spec.package.metadata.license.type -cne 'expression' -or
                 $spec.package.metadata.license.InnerText -cne 'MIT') {
-                throw "Expected the MIT SPDX license expression in $id"
+                throw ('Expected the MIT SPDX license expression in {0}' -f $id)
             }
             if($spec.package.metadata.authors -cne $buildProperties.Project.PropertyGroup.Authors) {
-                throw "Author metadata mismatch in $id"
+                throw ('Author metadata mismatch in {0}' -f $id)
             }
             if($spec.package.metadata.projectUrl -cne $buildProperties.Project.PropertyGroup.PackageProjectUrl -or
                 $spec.package.metadata.repository.url -cne $buildProperties.Project.PropertyGroup.RepositoryUrl -or
                 $spec.package.metadata.repository.type -cne $buildProperties.Project.PropertyGroup.RepositoryType) {
-                throw "Project/repository metadata mismatch in $id"
+                throw ('Project/repository metadata mismatch in {0}' -f $id)
             }
             if($spec.package.metadata.copyright -cne $buildProperties.Project.PropertyGroup.Copyright) {
-                throw "Copyright metadata mismatch in $id"
+                throw ('Copyright metadata mismatch in {0}' -f $id)
             }
         } finally { $package.Dispose() }
     }
@@ -88,15 +88,43 @@ try {
 using System;
 using System.Reflection;
 using Fonts.Metadata;
+const string UnexpectedAssemblyMessage = "Unexpected assembly identity.";
+const string LibraryVersionMismatchMessage = "Library version does not match the package version.";
+const string CompleteReadFailureMessage = "Packaged reader failed the complete metadata contract.";
+const string PartialReadFailureMessage = "Packaged reader failed the partial-result contract.";
+const string UnexpectedStrictSuccessMessage = "Strict reading unexpectedly accepted incomplete metadata.";
+const string LostPartialMetadataMessage = "Strict reading did not preserve partial metadata.";
+const string ReaderVerifiedMessage = "Packaged SFNT reading, partial results, diagnostics and strict exceptions verified.";
 Type[] types = { typeof(FontMetadata), typeof(FontMetadata.Face), typeof(FontMetadata.NameRecord), typeof(FontMetadata.EotHeader) };
 foreach(Type type in types) {
     if(type.Assembly.GetName().Name != "Font.Metadata")
-        throw new Exception("Unexpected assembly identity.");
+        throw new Exception(UnexpectedAssemblyMessage);
     string version = type.Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion.Split('+')[0];
     if(version != args[0])
-        throw new Exception("Library version does not match the package version.");
+        throw new Exception(LibraryVersionMismatchMessage);
     Console.WriteLine(type.FullName);
 }
+// Independent binary vectors: one readable family name, then a readable name followed by invalid UTF-16.
+byte[] valid = Convert.FromHexString("0001000000010010000000006E616D65000000000000001C000000140000000100120003000104090001000200000041");
+FontMetadata font = FontMetadataReader.Read(valid);
+if(font.Format != FontFormat.Sfnt || font.Faces.Count != 1 || font.Faces[0].FamilyName != "A" ||
+    font.Faces[0].NameTableStatus != FontSectionStatus.Complete || font.Faces[0].Os2TableStatus != FontSectionStatus.Missing)
+    throw new Exception(CompleteReadFailureMessage);
+byte[] damaged = Convert.FromHexString("0001000000010010000000006E616D65000000000000001C0000002200000002001E000300010409000100020000000300010409000D000200020041D800");
+FontInspectionResult result = FontMetadataReader.Inspect(damaged);
+if(result.Status != FontReadStatus.Partial || result.Metadata.Faces[0].FamilyName != "A" ||
+    result.Metadata.Faces[0].NameTableStatus != FontSectionStatus.Partial || result.Diagnostics.Count != 1 ||
+    result.Diagnostics[0].Code != FontDiagnosticCodes.InvalidNameTable || result.Diagnostics[0].FaceIndex != 0 ||
+    result.Diagnostics[0].TableTag != "name")
+    throw new Exception(PartialReadFailureMessage);
+try {
+    FontMetadataReader.Read(damaged);
+    throw new Exception(UnexpectedStrictSuccessMessage);
+} catch(FontReadException exception) {
+    if(exception.Result.Status != FontReadStatus.Partial || exception.Result.Metadata.Faces[0].FamilyName != "A")
+        throw new Exception(LostPartialMetadataMessage);
+}
+Console.WriteLine(ReaderVerifiedMessage);
 '@)
     Invoke-DotNet @('restore', $project, '--configfile', $config)
     Invoke-DotNet @('build', $project, '-c', 'Release', '--no-restore')
@@ -108,11 +136,11 @@ foreach(Type type in types) {
     $executable = Join-Path $toolPath $toolName
     $help = & $executable --help
     if($LASTEXITCODE -ne 0 -or ($help -join "\n") -notmatch 'not implemented') {
-        throw 'Installed tool did not report its scaffold capabilities.'
+        throw 'Installed tool did not report its current capabilities.'
     }
     $actualVersion = & $executable --version
     if($LASTEXITCODE -ne 0 -or ($actualVersion.Trim() -split '\+')[0] -ne $version) {
-        throw "Installed tool version does not match $version."
+        throw ('Installed tool version does not match {0}.' -f $version)
     }
     Write-Host 'PackageReference consumer and installed dotnet tool checks passed.'
 } finally {

@@ -1,37 +1,49 @@
 # Architecture
 
-The repository contains a library, a CLI and two NUnit test projects. It currently establishes packaging and model names; font readers and analyzers are not implemented.
+The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC reading. The CLI currently exposes help/version; reporting and license analysis remain separate future components.
 
 ## Repository layout
 
 ```text
 Font.Metadata/
 ├── Font.Metadata.slnx
-├── Directory.Build.props           compiler settings and development version
+├── Directory.Build.props           compiler/package settings and development version
 ├── Directory.Packages.props        central dependency versions
 ├── global.json                     .NET SDK selection
 ├── NuGet.Config                    public dependency source
 ├── Font.Metadata/
-│   └── FontMetadata.cs             outer model and nested type declarations
-├── Font.Metadata.Tool/
-│   └── Program.cs                  help, version and unsupported-command handling
-├── Font.Metadata.Tests/
-│   └── PublicContractTests.cs       public type identities and accessibility
-├── Font.Metadata.Tool.Tests/
-│   └── CommandTests.cs             CLI process behavior and output channels
-├── eng/
-│   ├── Tests.props                 shared test settings and dependencies
-│   ├── verify.ps1                  restore, build, tests, formatting and package checks
-│   ├── verify-packages.ps1         local packing, consumer and tool installation
-│   ├── get-version.ps1             canonical development/release version validation
-│   ├── test-release.ps1            offline release-script checks
-│   ├── prepare-release.ps1         verified packages and portable CLI archive
-│   ├── verify-release-assets.ps1   checksums and package identities
-│   └── publish-github-release.ps1  draft upload, collision checks and publication
-├── .github/workflows/ci.yml         branch/PR operating-system verification matrix
-├── .github/workflows/release.yml    tag verification and package/release publication
-└── docs/                           current product and contributor documentation
+│   ├── FontMetadata.cs                  immutable metadata and nested models
+│   ├── FontFormat.cs                    source container format
+│   ├── Reading/
+│   │   ├── FontMetadataReader.cs        input ownership and Read/Inspect entry points
+│   │   ├── FontReadOptions.cs           reading configuration
+│   │   ├── FontReadLimits.cs            processing budgets
+│   │   ├── FontReadException.cs         strict-read exceptions with inspection results
+│   │   └── Internal/
+│   │       ├── SfntParser.cs            container/directory validation and face recovery
+│   │       ├── MetadataTables.cs        name and OS/2 decoding
+│   │       ├── NameTableDefinitions.cs  shared name/platform/encoding identifiers
+│   │       ├── NameSelection.cs         deterministic preferred values
+│   │       └── ReadingContext.cs        operation budgets, caches and diagnostics
+│   ├── Inspection/
+│   │   ├── FontInspectionResult.cs     metadata, completion status and diagnostics
+│   │   ├── FontReadStatus.cs           overall reading outcome
+│   │   └── FontSectionStatus.cs        per-table completeness
+│   └── Diagnostics/
+│       ├── FontDiagnostic.cs           diagnostic evidence and source location
+│       ├── FontDiagnosticCodes.cs      stable diagnostic identifiers
+│       ├── FontDiagnosticCategory.cs   diagnostic classification
+│       └── FontDiagnosticSeverity.cs   diagnostic severity
+├── Font.Metadata.Tool/              help, version and unsupported-command handling
+├── Font.Metadata.Tests/             public API, synthetic fonts and recovery tests
+├── Font.Metadata.Tool.Tests/        child-process CLI tests
+├── eng/                            local verification, packaging and release scripts
+├── .github/workflows/ci.yml         operating-system verification matrix
+├── .github/workflows/release.yml    explicit version-tag publication
+└── docs/                           product and contributor documentation
 ```
+
+Source folders group responsibilities without defining additional public namespaces. Reading owns the operations, options, limits and strict-read exceptions; Inspection owns outcomes and completeness; Diagnostics owns diagnostic evidence and classification. Public types remain in `Fonts.Metadata`, and parsing helpers remain internal in `Fonts.Metadata.Internal` under `Reading/Internal`. The CLI and test projects keep their existing layouts.
 
 ## Dependencies
 
@@ -47,24 +59,65 @@ Font.Metadata/
  Local tool nupkg ─────→ isolated tool-path installation
 ```
 
-The library has no application-layer dependencies and no project references. The tool consumes the library and owns console behavior. Tests do not widen the public API.
+The library has no application-layer dependencies, package dependencies or project references. It uses the .NET 10 runtime, including its code-page provider. The tool owns console behavior. Tests exercise public contracts. A deterministic cancellation check uses InternalsVisibleTo for the existing internal name-selection operation; no public test hooks are introduced.
 
-## Public type organization
+## Reading flow
+
+```text
+ File / Stream                 Array / Slice / Memory / Span
+       │                                    │
+       ▼                                    │
+ owned file lifetime; bounded stream buffer │
+ restore caller's seekable stream position  │
+       └─────────────────┬──────────────────┘
+                         ▼
+           one operation / leading input origin
+                         │
+                   SFNT or TTC
+                         ▼
+       bounded header and directory validation
+                         │
+             per-face independent recovery
+                         ▼
+           verified name and OS/2 ranges
+                         │
+       shared table + preferred names + string budget
+                         ▼
+       raw records / preferred values / diagnostics
+                         │
+                         ▼
+             immutable FontInspectionResult
+                    ┌────┴────┐
+                    ▼         ▼
+                 Inspect     Read
+                 returns     requires Complete
+                             otherwise throws with Result
+```
+
+All offsets and sizes are validated before slicing or allocation. Independent tables and faces survive local data failures. Collection and source-record indexes are preserved. Format constraints and configurable budgets are distinct. Read and Inspect never diverge into separate parsers.
+
+Options and limits are sealed, init-only values. An operation owns its diagnostics, table cache and string accounting; there are no global mutable caches or implicit encoding-provider registrations. Shared data is reused only within the operation. Each distinct name table owns its preferred-value selection; faces referencing that table reuse its selected strings. Returned records and diagnostics have no mutable backing arrays accessible to callers.
+
+## Public ownership
 
 ```text
 namespace Fonts.Metadata
-└── FontMetadata
-    ├── Face
-    ├── NameRecord
-    └── EotHeader
+├── FontMetadataReader
+├── FontReadOptions ──→ FontReadLimits
+├── FontInspectionResult ──→ FontDiagnostic
+├── FontMetadata
+│   ├── Face ──→ NameRecord
+│   ├── NameRecord
+│   └── EotHeader (reserved)
+├── FontReadStatus / FontSectionStatus / FontFormat
+├── FontDiagnosticSeverity / FontDiagnosticCategory / FontDiagnosticCodes
+└── FontReadException / FontFeatureNotSupportedException
 ```
 
-The model types are sealed and have internal constructors. Their properties and behavior will be introduced with the corresponding implementation rather than populated with placeholder data.
+Only data models nest under FontMetadata. Operations, options, status types and diagnostics remain independent. The reserved EotHeader model is not instantiated until EOT support exists. Future license analysis belongs in a separate FontLicenseAnalyzer operating on metadata and evidence, without parser I/O or consumer-specific policy.
 
-## Build and runtime boundaries
+## Runtime and validation boundaries
 
-The library, tool and both test projects target net10.0. A stable .NET 10 SDK builds the solution on Windows, Linux and macOS.
+All four projects target net10.0. Repository settings, sources and dependencies are self-contained. No external consumer projects, source links or private feeds are required.
 
-All project settings and dependencies are local to this repository. There are no linked sources, project references or feeds from the original consumer tools.
-
-Architectural diagrams use text and UTF box-drawing characters. They must remain readable without a diagram renderer.
+Complete describes supported metadata extraction, not comprehensive font validity. See [Formats](formats.md) for exactly what is checked and [Testing](testing.md) for verification.

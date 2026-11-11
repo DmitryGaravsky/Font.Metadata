@@ -8,7 +8,7 @@ $Version = & (Join-Path $PSScriptRoot 'get-version.ps1') -Version $Version
 function Invoke-DotNet([string[]] $Arguments) {
     & dotnet @Arguments
     if($LASTEXITCODE -ne 0) {
-        throw "dotnet $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
+        throw ('dotnet {0} failed with exit code {1}.' -f ($Arguments -join ' '), $LASTEXITCODE)
     }
 }
 Push-Location $root

@@ -2,7 +2,7 @@
 
 [release.yml](../.github/workflows/release.yml) publishes both NuGet packages and a GitHub Release when a version tag is pushed. Branch commits and pull requests only run CI. There is no manual publication trigger. Local build and preparation scripts never publish.
 
-The current product is a scaffold: font parsing and license analysis are not implemented. A release workflow does not imply that a public version already exists.
+The library reads SFNT/TTC metadata. The CLI currently provides help/version; CLI inspection and license analysis are not implemented. A release workflow does not imply that a public version already exists.
 
 ## Version policy
 
