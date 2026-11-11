@@ -17,9 +17,13 @@ try {
     [IO.Compression.ZipFileExtensions]::ExtractToFile($licenseEntry, (Join-Path $payload 'LICENSE'))
     $prefix = 'tools/net10.0/any/'
     foreach($entry in $package.Entries) {
-        if(-not $entry.FullName.StartsWith($prefix, [StringComparison]::Ordinal) -or -not $entry.Name) { continue }
+        if(-not $entry.FullName.StartsWith($prefix, [StringComparison]::Ordinal) -or -not $entry.Name) {
+            continue
+        }
         $relative = $entry.FullName.Substring($prefix.Length)
-        if($relative -eq 'DotnetToolSettings.xml') { continue }
+        if($relative -eq 'DotnetToolSettings.xml') {
+            continue
+        }
         $destination = [IO.Path]::GetFullPath((Join-Path $payload $relative))
         if(-not $destination.StartsWith($payload + [IO.Path]::DirectorySeparatorChar, [StringComparison]::Ordinal)) {
             throw 'Tool package contains a path outside its payload.'
@@ -58,4 +62,4 @@ $checksums = foreach($name in $names) {
 }
 [IO.File]::WriteAllText((Join-Path $output 'SHA256SUMS'), ($checksums -join "`n") + "`n")
 & (Join-Path $PSScriptRoot 'verify-release-assets.ps1') -Version $version -Directory $output
-Write-Host "Release files prepared and verified in $output. Nothing was published."
+Write-Host ('Release files prepared and verified in {0}. Nothing was published.' -f $output)

@@ -4,9 +4,13 @@ This is the single source of rules for coding agents working in this repository.
 
 ## Scope and current implementation
 
-The repository contains a buildable foundation: library model type shells, CLI help/version commands, tests, packaging checks and CI. Font parsers, metadata properties and the license analyzer are not implemented yet.
+The library implements SFNT/TTC metadata reading with partial results, per-table statuses and diagnostics. The repository also contains CLI help/version commands, tests, packaging checks and CI. WOFF/WOFF2/EOT reading, embedded search, license analysis and CLI inspection are not implemented yet.
 
-Work in this repository for its authorized tasks. Changes to external consumers, Git staging/commits, remotes and publication require an explicit request. Preserve unrelated concurrent changes.
+Work directly in this repository for its authorized tasks. Changes to external consumers require an explicit request. Preserve unrelated concurrent changes.
+
+## Git ownership
+
+Agents may read and inspect the repository using Git, including status, diff, log, show, blame, ls-files and other read-only analysis operations. Editing project files and running build/test checks are allowed within the authorized task. The user performs operations that change Git state or remote repository state after reviewing the changes. Do not stage, commit, create or switch branches, manage worktrees, merge, rebase, stash, reset, clean, create or delete tags, change remotes, fetch, pull or push. Do not modify Git metadata directly or use wrappers or repository-management APIs to bypass this rule. Provide a suggested commit message only when requested. This rule applies unless the user explicitly changes it.
 
 Keep research, comparisons with original projects and temporary planning outside the repository. Do not embed local workspace paths or research transcripts in product documentation.
 
@@ -31,15 +35,16 @@ Read only what is relevant to the change. Source code and tests establish implem
 - Target net10.0 only for the library, tool and tests. Use a stable .NET 10 SDK; do not introduce older framework targets or compatibility dependencies.
 - Keep the library independent of the CLI, external scanners, catalogs and SBOM models.
 - Namespace is Fonts.Metadata. Package IDs are Font.Metadata and Font.Metadata.Tool. Metadata models nest one level under FontMetadata: Face, NameRecord and EotHeader.
+- Group library sources by responsibility: Reading for operations/options/limits/exceptions, Reading/Internal for parser implementation, Inspection for outcomes/statuses, and Diagnostics for diagnostic contracts. Keep FontMetadata and FontFormat at the library root. Folder names do not change namespaces: public types stay in Fonts.Metadata and parser helpers in Fonts.Metadata.Internal.
 - Keep operations, options and diagnostics independently usable. Do not nest every type in FontMetadata.
 - Public members must serve independent consumers. Keep parsers, buffers, budgets and orchestration internal. Do not widen visibility just for tests; use narrow InternalsVisibleTo access when needed.
-- Use immutable results and collections that do not expose mutable backing storage. Snapshot options at operation entry.
+- Use immutable results and collections that do not expose mutable backing storage. Use immutable init-only options, or snapshot any mutable options at operation entry.
 - Before introducing an interface, wrapper, DTO, factory or cache, look for an existing contract with the same meaning. A test double alone does not justify an interface.
 - Do not add asynchronous/disposable contracts without corresponding I/O or resource ownership.
 
 ## Rules for implementing font reading
 
-These are implementation invariants, not claims that readers already exist:
+These invariants apply to implemented and future readers:
 
 - Read and Inspect must share one parser. Distinguish missing data from unreadable data and preserve independently verified tables, faces and EOT header facts.
 - Preserve original indexes and source name records. EOT metadata must not silently replace embedded face facts.
@@ -58,10 +63,19 @@ These are implementation invariants, not claims that readers already exist:
 - Use nullable reference types and treat compiler warnings as errors.
 - Centralize dependency versions in Directory.Packages.props and use NUnit for tests.
 - Use narrow visibility, omit private when it is the default, and make stateless helpers static.
-- Use block-bodied implementations and compact simple accessors. Keep argument grouping readable.
+- Use block-bodied implementations. Put method and constructor bodies on separate lines, including one-statement helpers and test doubles; keep only simple property accessors compact. Keep argument grouping readable.
+- Put if and loop bodies on the next line. Short closing else and finally branches may stay on one line when readable, for example `else protectedRanges.Add(range);` or `finally { stream.Dispose(); }`. Keep return, continue, break and throw on separate lines.
+- Use named local variables for intermediate results instead of nesting parsing, snapshot creation and result construction in a single expression.
+- Default absent collections on the receiving model where useful. Use ReadOnlyCollection<T>.Empty and ReadOnlyDictionary<TKey, TValue>.Empty instead of wrapping empty arrays or allocating empty dictionaries; preserve immutable result collections.
+- Express four-byte textual signatures with UTF-8 literals and explicit big-endian conversion when this is clearer than hexadecimal values. Keep genuinely numeric versions and independent test vectors numeric.
 - Use explicit using blocks for meaningful resource lifetimes; use braces for multiline bodies. Place disposal close to construction and exception filters on continuation lines.
 - Follow .editorconfig and .gitattributes; do not inherit unrelated parent-repository settings.
 - Write XML documentation for public API contracts. Use ordinary concise comments for implementation decisions.
+- Replace binary-format magic numbers with named constants for signatures, versions, field offsets, sizes and flags. Keep ordinary loop/index literals where their meaning is clear.
+- Explain non-obvious binary parsing and recovery decisions with short comments and links to primary format specifications; do not narrate obvious statements.
+- Extract complex predicates and branching into focused helpers with meaningful names when this improves readability.
+- In C#, keep diagnostic message text in named constants rather than embedding message literals in parsing/control-flow code. In PowerShell, keep messages inline; do not introduce message constants or lookup tables. Retain readable conditions and multiline control flow in scripts.
+- Keep test fixtures independent of production format constants. Name repeated layout values in test helpers; preserve explicit boundary cases, expected values and fixed binary vectors as independent test evidence.
 - Keep meaningful public contracts even if current consumers do not yet use every member. Validate review claims against actual target frameworks before changing accessibility or behavior.
 
 ## Verification and documentation

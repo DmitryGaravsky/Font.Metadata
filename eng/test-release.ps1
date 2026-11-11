@@ -3,6 +3,11 @@
 param()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+Set-Variable -Name MockArguments -Option Constant -Value @{
+    Operation = 1; UploadPath = 3; DownloadName = 4; DownloadDirectory = 6
+}
+Set-Variable -Name ExpectedReleaseFileCount -Option Constant -Value 4
+Set-Variable -Name MockJsonDepth -Option Constant -Value 4
 $getVersion = Join-Path $PSScriptRoot 'get-version.ps1'
 foreach($version in @('0.1.0', '1.2.3-preview.1', '1.2.3-rc.0', '10.0.0')) {
     if((& $getVersion -Tag "v$version") -cne $version) { throw 'Valid version rejected.' }
@@ -11,7 +16,7 @@ foreach($tag in @('1.2.3', 'v', 'v01.2.3', 'v1.2', 'v1.2.3.4', 'v1.2.3+build', '
     'v1.2.3-01', 'v1.2.3-preview..1', 'v1.2.3/other', "v1.2.3`n")) {
     $rejected = $false
     try { & $getVersion -Tag $tag | Out-Null } catch { $rejected = $true }
-    if(-not $rejected) { throw "Invalid tag accepted: $tag" }
+    if(-not $rejected) { throw ('Invalid tag accepted: {0}' -f $tag) }
 }
 # Exercise publication control flow with local fixtures and an in-process GitHub CLI substitute.
 $root = Split-Path $PSScriptRoot -Parent
@@ -34,26 +39,32 @@ $checksums = Get-ChildItem -LiteralPath $fixture -File | ForEach-Object {
 $global:fontMetadataReleaseMock = $null
 function gh {
     $global:LASTEXITCODE = 0
-    $operation = $args[1]
+    $operation = $args[$MockArguments.Operation]
     $global:fontMetadataReleaseMock.Calls.Add(($args -join ' '))
     switch($operation) {
         'view' {
-            if(-not $global:fontMetadataReleaseMock.Exists) { $global:LASTEXITCODE = 1; return }
-            return (@{ isDraft = $global:fontMetadataReleaseMock.Draft; isPrerelease = $true; assets = @($global:fontMetadataReleaseMock.Assets | ForEach-Object { @{ name = $_ } }) } | ConvertTo-Json -Depth 4)
+            if(-not $global:fontMetadataReleaseMock.Exists) {
+                $global:LASTEXITCODE = 1
+                return
+            }
+            return (@{ isDraft = $global:fontMetadataReleaseMock.Draft; isPrerelease = $true; assets = @($global:fontMetadataReleaseMock.Assets | ForEach-Object { @{ name = $_ } }) } | ConvertTo-Json -Depth $MockJsonDepth)
         }
         'create' { $global:fontMetadataReleaseMock.Exists = $true; $global:fontMetadataReleaseMock.Draft = $true }
         'upload' {
-            if($global:fontMetadataReleaseMock.FailUpload) { $global:LASTEXITCODE = 1; return }
-            $global:fontMetadataReleaseMock.Assets.Add([IO.Path]::GetFileName($args[3]))
+            if($global:fontMetadataReleaseMock.FailUpload) {
+                $global:LASTEXITCODE = 1
+                return
+            }
+            $global:fontMetadataReleaseMock.Assets.Add([IO.Path]::GetFileName($args[$MockArguments.UploadPath]))
         }
         'download' {
-            $name = $args[4]
-            $directory = $args[6]
+            $name = $args[$MockArguments.DownloadName]
+            $directory = $args[$MockArguments.DownloadDirectory]
             Copy-Item -LiteralPath (Join-Path $fixture $name) -Destination $directory
             if($global:fontMetadataReleaseMock.Corrupt) { [IO.File]::AppendAllText((Join-Path $directory $name), 'changed') }
         }
         'edit' { $global:fontMetadataReleaseMock.Draft = $false }
-        default { throw "Unexpected GitHub CLI operation: $operation" }
+        default { throw ('Unexpected GitHub CLI operation: {0}' -f $operation) }
     }
 }
 function New-Mock {
@@ -67,7 +78,7 @@ $publisher = Join-Path $PSScriptRoot 'publish-github-release.ps1'
 try {
     New-Mock
     & $publisher -Tag "v$version" -Directory $fixture 6>&1 | Out-Null
-    if($global:fontMetadataReleaseMock.Draft -or $global:fontMetadataReleaseMock.Assets.Count -ne 4) { throw 'Incomplete release was published.' }
+    if($global:fontMetadataReleaseMock.Draft -or $global:fontMetadataReleaseMock.Assets.Count -ne $ExpectedReleaseFileCount) { throw 'Incomplete release was published.' }
     if(-not ($global:fontMetadataReleaseMock.Calls | Where-Object { $_ -like '*--prerelease*' })) { throw 'Prerelease flag missing.' }
     $global:fontMetadataReleaseMock.Calls.Clear()
     & $publisher -Tag "v$version" -Directory $fixture 6>&1 | Out-Null
