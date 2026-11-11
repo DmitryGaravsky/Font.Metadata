@@ -95,7 +95,11 @@ const string PartialReadFailureMessage = "Packaged reader failed the partial-res
 const string UnexpectedStrictSuccessMessage = "Strict reading unexpectedly accepted incomplete metadata.";
 const string LostPartialMetadataMessage = "Strict reading did not preserve partial metadata.";
 const string ReaderVerifiedMessage = "Packaged SFNT reading, partial results, diagnostics and strict exceptions verified.";
-Type[] types = { typeof(FontMetadata), typeof(FontMetadata.Face), typeof(FontMetadata.NameRecord), typeof(FontMetadata.EotHeader) };
+const string LicenseAnalysisFailureMessage = "Packaged license analyzer failed its evidence or completeness contract.";
+const string MutableHintsMessage = "Packaged license hints expose a mutable collection.";
+const string LicenseAnalysisVerifiedMessage = "Packaged license analysis, evidence, immutability and source completeness verified.";
+Type[] types = { typeof(FontMetadata), typeof(FontMetadata.Face), typeof(FontMetadata.NameRecord), typeof(FontMetadata.EotHeader),
+    typeof(FontLicenseAnalyzer), typeof(FontLicenseAnalysis), typeof(FontLicenseHint), typeof(FontLicenseIdentifierKind) };
 foreach(Type type in types) {
     if(type.Assembly.GetName().Name != "Font.Metadata")
         throw new Exception(UnexpectedAssemblyMessage);
@@ -125,6 +129,34 @@ try {
         throw new Exception(LostPartialMetadataMessage);
 }
 Console.WriteLine(ReaderVerifiedMessage);
+// Independent wire vectors: MIT in name ID 13; then MIT followed by an invalid UTF-16 record.
+byte[] licensed = Convert.FromHexString("0001000000010010000000006E616D65000000000000001C00000018000000010012000300010409000D00060000004D00490054");
+byte[] partialLicense = Convert.FromHexString("0001000000010010000000006E616D65000000000000001C0000002600000002001E000300010409000D00060000000300010409000E00020006004D00490054D800");
+FontMetadata.Face completeFace = FontMetadataReader.Read(licensed).Faces[0];
+FontInspectionResult partialInspection = FontMetadataReader.Inspect(partialLicense);
+if(partialInspection.Status != FontReadStatus.Partial)
+    throw new Exception(LicenseAnalysisFailureMessage);
+FontMetadata.Face partialFace = partialInspection.Metadata.Faces[0];
+foreach(FontMetadata.Face face in new[] { completeFace, partialFace }) {
+    FontLicenseAnalysis analysis = FontLicenseAnalyzer.Analyze(face);
+    if(analysis.IsSourceComplete != ReferenceEquals(face, completeFace) || analysis.Hints.Count != 1)
+        throw new Exception(LicenseAnalysisFailureMessage);
+    FontLicenseHint hint = analysis.Hints[0];
+    if(hint.Identifier != "MIT" || hint.IdentifierKind != FontLicenseIdentifierKind.Spdx || hint.RuleId != "FLA001" ||
+        !ReferenceEquals(hint.SourceRecord, face.NameRecords[0]) || hint.SourceRecord.NameId != 13 || hint.SourceRecord.Value != "MIT")
+        throw new Exception(LicenseAnalysisFailureMessage);
+    if(analysis.Hints is System.Collections.IList list) {
+        try {
+            list.Clear();
+            throw new Exception(MutableHintsMessage);
+        } catch(NotSupportedException) {
+        }
+    }
+}
+FontLicenseAnalysis emptyAnalysis = FontLicenseAnalyzer.Analyze(font.Faces[0]);
+if(!emptyAnalysis.IsSourceComplete || emptyAnalysis.Hints.Count != 0)
+    throw new Exception(LicenseAnalysisFailureMessage);
+Console.WriteLine(LicenseAnalysisVerifiedMessage);
 '@)
     Invoke-DotNet @('restore', $project, '--configfile', $config)
     Invoke-DotNet @('build', $project, '-c', 'Release', '--no-restore')

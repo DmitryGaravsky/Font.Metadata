@@ -1,6 +1,6 @@
 # Architecture
 
-The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC reading. The CLI currently exposes help/version; reporting and license analysis remain separate future components.
+The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC reading. The CLI currently exposes help/version; reporting remains a future component. License evidence analysis is an independent operation on decoded records.
 
 ## Repository layout
 
@@ -25,6 +25,15 @@ Font.Metadata/
 │   │       ├── NameTableDefinitions.cs  shared name/platform/encoding identifiers
 │   │       ├── NameSelection.cs         deterministic preferred values
 │   │       └── ReadingContext.cs        operation budgets, caches and diagnostics
+│   ├── Licensing/
+│   │   ├── FontLicenseAnalyzer.cs      independent analysis of decoded name records
+│   │   ├── FontLicenseAnalysis.cs      immutable hints and source completeness
+│   │   ├── FontLicenseHint.cs          identifier, rule and original source record
+│   │   ├── FontLicenseIdentifierKind.cs individual SPDX identifier or family
+│   │   └── Internal/
+│   │       ├── LicenseRules.cs         frozen finite identifier/name/family vocabulary
+│   │       ├── LicenseText.cs          bounded-context statement and header matching
+│   │       └── LicenseUrls.cs          structural URI validation and exact allowlist
 │   ├── Inspection/
 │   │   ├── FontInspectionResult.cs     metadata, completion status and diagnostics
 │   │   ├── FontReadStatus.cs           overall reading outcome
@@ -43,7 +52,7 @@ Font.Metadata/
 └── docs/                           product and contributor documentation
 ```
 
-Source folders group responsibilities without defining additional public namespaces. Reading owns the operations, options, limits and strict-read exceptions; Inspection owns outcomes and completeness; Diagnostics owns diagnostic evidence and classification. Public types remain in `Fonts.Metadata`, and parsing helpers remain internal in `Fonts.Metadata.Internal` under `Reading/Internal`. The CLI and test projects keep their existing layouts.
+Source folders group responsibilities without defining additional public namespaces. Reading owns the operations, options, limits and strict-read exceptions; Inspection owns outcomes and completeness; Diagnostics owns diagnostic evidence and classification; Licensing owns independent license indications. Matching helpers use Fonts.Metadata.Internal under Licensing/Internal. Public types remain in `Fonts.Metadata`, and parsing helpers remain internal in `Fonts.Metadata.Internal` under `Reading/Internal`. The CLI and test projects keep their existing layouts.
 
 ## Dependencies
 
@@ -103,6 +112,9 @@ Options and limits are sealed, init-only values. An operation owns its diagnosti
 ```text
 namespace Fonts.Metadata
 ├── FontMetadataReader
+├── FontLicenseAnalyzer ──→ FontLicenseAnalysis ──→ FontLicenseHint
+│                                                ├── FontLicenseIdentifierKind
+│                                                └── FontMetadata.NameRecord (original object)
 ├── FontReadOptions ──→ FontReadLimits
 ├── FontInspectionResult ──→ FontDiagnostic
 ├── FontMetadata
@@ -114,7 +126,26 @@ namespace Fonts.Metadata
 └── FontReadException / FontFeatureNotSupportedException
 ```
 
-Only data models nest under FontMetadata. Operations, options, status types and diagnostics remain independent. The reserved EotHeader model is not instantiated until EOT support exists. Future license analysis belongs in a separate FontLicenseAnalyzer operating on metadata and evidence, without parser I/O or consumer-specific policy.
+Only data models nest under FontMetadata. Operations, options, status types and diagnostics remain independent. The reserved EotHeader model is not instantiated until EOT support exists. FontLicenseAnalyzer operates on existing face records, without parser I/O or consumer-specific policy.
+
+## License analysis flow
+
+```text
+FontMetadata.Face
+├── NameTableStatus ───────────────────────────→ IsSourceComplete
+└── NameRecords (all languages, source order)
+    └── IDs 13/14
+        └── statement / annotation-line / versioned-header boundaries
+            └── complete text lookup or structural URI allowlist
+                └── per-record evidence deduplication
+                    └── record order → rule order → evidence order
+                        └── immutable FontLicenseAnalysis
+                            └── hints retain original NameRecord objects
+```
+
+Matching uses fixed immutable dictionaries and iterative scanning; it does not use recursive expression parsing, regex backtracking, network lookups or global mutable caches. Each analysis invocation reuses matching results for shared decoded string objects, while constructing separate hints for every source record. Temporary matching state is not retained in results.
+
+Known expressions, exceptions and unknown variants fail whole-declaration matching; no operand is extracted as an unqualified license. Quote, parenthesis and URL boundaries prevent text inside them from being treated as separate statements. Independent records and explicit statements remain analyzable. See [Licensing](licensing.md) for the finite supported grammar and its limits.
 
 ## Runtime and validation boundaries
 

@@ -1,6 +1,6 @@
 # API
 
-Package: `Font.Metadata`. Namespace: `Fonts.Metadata`. Target: `net10.0`. All public types use this namespace, including types whose source files are grouped under Reading, Inspection and Diagnostics; no additional namespace imports are needed.
+Package: `Font.Metadata`. Namespace: `Fonts.Metadata`. Target: `net10.0`. All public types use this namespace, including types whose source files are grouped under Reading, Inspection, Diagnostics and Licensing; no additional namespace imports are needed.
 
 ## Public types
 
@@ -22,6 +22,13 @@ FontInspectionResult
 
 FontReadOptions
 └── Limits                         FontReadLimits
+
+FontLicenseAnalyzer.Analyze(Face)
+└── FontLicenseAnalysis
+    ├── IsSourceComplete           completeness of the name table
+    └── Hints                      IReadOnlyList<FontLicenseHint>
+        ├── Identifier / IdentifierKind / RuleId
+        └── SourceRecord           original FontMetadata.NameRecord
 ```
 
 The metadata and diagnostic types are sealed, immutable results with internal constructors. Nested models do not capture an outer instance. Collections do not expose mutable backing storage; results retain neither input buffers nor streams. An empty collection or a null property is interpreted together with its status, rather than as proof of absent source data.
@@ -141,8 +148,32 @@ Preferred string properties are `FamilyName`, `SubfamilyName`, `FullName`, `Post
 
 Each `FontMetadata.NameRecord` exposes `Index`, `NameId`, `PlatformId`, `EncodingId`, `LanguageId`, nullable `LanguageTag`, and unmodified decoded `Value`. Selection rules and supported encodings are in [Formats](formats.md).
 
+## License analysis
+
+```csharp
+using System;
+using Fonts.Metadata;
+
+FontInspectionResult inspection = FontMetadataReader.InspectFile("example.ttf");
+if(inspection.Metadata is { } font) {
+    foreach(FontMetadata.Face face in font.Faces) {
+        FontLicenseAnalysis analysis = FontLicenseAnalyzer.Analyze(face);
+        Console.WriteLine($"Source complete: {analysis.IsSourceComplete}");
+        foreach(FontLicenseHint hint in analysis.Hints) {
+            Console.WriteLine($"{hint.IdentifierKind} {hint.Identifier}: {hint.RuleId}, record {hint.SourceRecord.Index}");
+        }
+    }
+}
+```
+
+`Analyze(FontMetadata.Face)` rejects null with `ArgumentNullException`, performs no I/O and does not alter metadata or reading diagnostics. It uses all available ID 13/14 records, including nonpreferred languages and partial data. `SourceRecord` is the original record object. Results and collections are immutable with internal constructors.
+
+`IsSourceComplete` is true only for `NameTableStatus.Complete` or `Missing`, independently of other tables and the overall read status. It does not describe recognition coverage. Missing names, unsupported text or an empty result do not establish that a font has no license.
+
+`FontLicenseIdentifierKind.Spdx` denotes a supported individual identifier; `Family` denotes a known family without a sufficiently specific version or variant. Hints preserve conflicting evidence. They neither select a final license nor synthesize an expression. Compound declarations and exceptions are deliberately not simplified. See [Licensing](licensing.md) for rule IDs, ordering, vocabulary, URL rules and rejected cases.
+
 ## Capability helpers and deferred features
 
 `FontMetadataReader.IsFormatSupported(format)` reports implemented container readers: `Sfnt` and `Collection`. `HasFontExtension(path)` recognizes .ttf, .otf, .ttc, .otc, .woff, .woff2 and .eot case-insensitively. An extension is not evidence of valid or supported content.
 
-`FontMetadata.EotHeader` preserves the agreed public model name; `FontMetadata.Eot` is always null until EOT reading exists. There is no callable `FontLicenseAnalyzer`, embedded-font search API or CLI inspection yet. License strings and embedding flags are source facts; they do not establish permission to use or redistribute a font.
+`FontMetadata.EotHeader` preserves the agreed public model name; `FontMetadata.Eot` is always null until EOT reading exists. There is no embedded-font search API or CLI inspection yet. License strings and embedding flags are source facts; they do not establish permission to use or redistribute a font.
