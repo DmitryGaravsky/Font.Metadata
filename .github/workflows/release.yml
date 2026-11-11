@@ -1,0 +1,136 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate release tag
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = ./eng/get-version.ps1 -Tag $env:RELEASE_TAG
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+  verify:
+    needs: version
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify packages and portable CLI
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: ./eng/prepare-release.ps1 -Tag $env:RELEASE_TAG
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-tests-${{ matrix.os }}-${{ github.run_attempt }}
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: warn
+      - name: Preserve verified release files
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ needs.version.outputs.version }}
+          path: artifacts/release/${{ needs.version.outputs.version }}/*
+          if-no-files-found: error
+          retention-days: 30
+
+  nuget:
+    needs: [version, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-${{ needs.version.outputs.version }}
+          path: artifacts/publish
+      - name: Validate publication inputs
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          if([string]::IsNullOrWhiteSpace($env:NUGET_USER)) { throw 'Set NUGET_USER in the nuget environment.' }
+          ./eng/verify-release-assets.ps1 -Version $env:RELEASE_VERSION -Directory artifacts/publish
+      - name: Authenticate to NuGet.org
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish library and dotnet tool
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          foreach($id in @('Font.Metadata', 'Font.Metadata.Tool')) {
+            dotnet nuget push "artifacts/publish/$id.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+            if($LASTEXITCODE -ne 0) { throw "NuGet publication failed for $id" }
+          }
+
+  github-release:
+    needs: [version, nuget]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-${{ needs.version.outputs.version }}
+          path: artifacts/publish
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: ./eng/publish-github-release.ps1 -Tag $env:RELEASE_TAG -Directory artifacts/publish

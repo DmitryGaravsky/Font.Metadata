@@ -1,0 +1,26 @@
+# Build outputs, package verification and test reports
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+*.trx
+*.nupkg
+*.snupkg
+coverage/
+coverage.*
+
+# Local editor state and caches
+.vs/
+.idea/
+.cr/personal/
+*.user
+*.suo
+*.sln.docstates
+.nuget/
+.DS_Store
+Thumbs.db
+
+# Research belongs outside this repository; guard against accidental copies.
+[Rr]esearch/
+Font.Metadata.Research/
+design-*/

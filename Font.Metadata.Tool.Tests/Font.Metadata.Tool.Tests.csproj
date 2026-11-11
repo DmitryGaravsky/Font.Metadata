@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../eng/Tests.props" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Fonts.Metadata.Tool.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Font.Metadata.Tool/Font.Metadata.Tool.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <Target Name="CopyToolForProcessTests" AfterTargets="Build">
+    <ItemGroup>
+      <ToolOutput Include="../Font.Metadata.Tool/bin/$(Configuration)/net10.0/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ToolOutput)" DestinationFiles="@(ToolOutput->'$(OutDir)tool/%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+</Project>

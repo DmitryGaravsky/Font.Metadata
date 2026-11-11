@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Font.Metadata/Font.Metadata.csproj" />
+  <Project Path="Font.Metadata.Tool/Font.Metadata.Tool.csproj" />
+  <Project Path="Font.Metadata.Tests/Font.Metadata.Tests.csproj" />
+  <Project Path="Font.Metadata.Tool.Tests/Font.Metadata.Tool.Tests.csproj" />
+</Solution>
