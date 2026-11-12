@@ -2,7 +2,6 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 
 namespace Fonts.Metadata.Internal {
     internal ref struct SfntParser {
@@ -47,15 +46,20 @@ namespace Fonts.Metadata.Internal {
 
         readonly ReadOnlySpan<byte> data;
         readonly ReadingContext context;
-        readonly List<FontMetadata.Face> faces = new();
+        readonly SourceLocation source;
+        readonly FontFaceSource faceSource;
+        readonly bool sourceComplete;
         readonly List<(long Start, long End)> directories = new();
         readonly List<(long Start, long End)> protectedRanges = new();
-        bool hasUsableMetadata, incompleteSections;
-        internal SfntParser(ReadOnlySpan<byte> data, FontReadLimits limits, CancellationToken token) {
+        internal SfntParser(ReadOnlySpan<byte> data, ReadingContext context, SourceLocation source,
+            FontFaceSource faceSource = FontFaceSource.Container, bool sourceComplete = true) {
             this.data = data;
-            context = new ReadingContext(limits, token);
+            this.context = context;
+            this.source = source;
+            this.faceSource = faceSource;
+            this.sourceComplete = sourceComplete;
         }
-        static bool IsSupportedSfntFlavor(uint flavor) {
+        internal static bool IsSupportedSfntFlavor(uint flavor) {
             return flavor == TrueTypeFlavor || flavor == OpenTypeCffFlavor ||
                 flavor == AppleTrueTypeFlavor || flavor == Type1Flavor;
         }
@@ -82,39 +86,19 @@ namespace Fonts.Metadata.Internal {
             uint version = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(EotVersionOffset, sizeof(uint)));
             return version is EotVersion1 or EotVersion2 or EotVersion2WithRootStringChecksum;
         }
-        internal FontInspectionResult Parse() {
-            context.Token.ThrowIfCancellationRequested();
-            var format = Recognize(data);
-            if(format == FontFormat.Unknown)
-                return new FontInspectionResult(FontReadStatus.NotRecognized, null, context.Diagnostics.Freeze());
+        internal void Read(FontFormat format) {
+            context.CheckCancellation();
             if(format == FontFormat.Sfnt) {
-                ProtectDirectory(0);
-                MergeProtection();
-                faces.Add(ReadFace(0, 0, 0));
+                var face = ReadSingleFace(0);
+                context.Faces.Add(face);
             }
-            else if(format == FontFormat.Collection) {
+            else
                 ReadCollection();
-            }
-            else {
-                Error(FontDiagnosticCodes.UnsupportedFormat, Messages.UnsupportedContainer, 0,
-                    category: FontDiagnosticCategory.UnsupportedFeature);
-            }
-            context.Token.ThrowIfCancellationRequested();
-            var status = GetReadStatus();
-            var faceSnapshot = Array.AsReadOnly(faces.ToArray());
-            var metadata = new FontMetadata(format, faceSnapshot);
-            var diagnostics = context.Diagnostics.Freeze();
-            return new FontInspectionResult(status, metadata, diagnostics);
         }
-        FontReadStatus GetReadStatus() {
-            bool incomplete = incompleteSections || context.Diagnostics.HasErrors || context.Diagnostics.Truncated;
-            if(!incomplete)
-                return FontReadStatus.Complete;
-            if(hasUsableMetadata)
-                return FontReadStatus.Partial;
-            if(context.Diagnostics.HasDataFailure || context.Diagnostics.Truncated)
-                return FontReadStatus.Failed;
-            return FontReadStatus.Unsupported;
+        internal FontMetadata.Face ReadSingleFace(int index) {
+            ProtectDirectory(0);
+            MergeProtection();
+            return ReadFace(index, 0, 0);
         }
         internal static FontInspectionResult InputLimit(ReadOnlySpan<byte> prefix) {
             var format = Recognize(prefix);
@@ -127,12 +111,12 @@ namespace Fonts.Metadata.Internal {
         void Error(string code, string message, long? offset, int? index = null, string? tag = null,
             FontDiagnosticCategory category = FontDiagnosticCategory.MalformedData) {
             var diagnostic = new FontDiagnostic(code,
-                FontDiagnosticSeverity.Error, category, message, index, tag, offset);
+                FontDiagnosticSeverity.Error, category, message, index, tag, offset.HasValue ? source.Map(offset.Value) : null);
             context.Diagnostics.Add(diagnostic);
         }
         void Warning(string message, long offset, int index, string? tag = null) {
             var diagnostic = new FontDiagnostic(FontDiagnosticCodes.NonConformantDirectory,
-                FontDiagnosticSeverity.Warning, FontDiagnosticCategory.NonConformantData, message, index, tag, offset);
+                FontDiagnosticSeverity.Warning, FontDiagnosticCategory.NonConformantData, message, index, tag, source.Map(offset));
             context.Diagnostics.Add(diagnostic);
         }
         bool InBounds(long offset, long length) {
@@ -200,16 +184,16 @@ namespace Fonts.Metadata.Internal {
             directories.Add((0, headerEnd));
             int allowed = (int)Math.Min(count, (uint)context.Limits.MaxFaces);
             for(int i = 0; i < allowed; i++) {
-                context.Token.ThrowIfCancellationRequested();
+                context.CheckCancellation();
                 long offset = ReadCollectionFaceOffset(i);
                 if(offset >= headerEnd)
                     ProtectDirectory(offset);
             }
             MergeProtection();
             for(int i = 0; i < allowed; i++) {
-                context.Token.ThrowIfCancellationRequested();
+                context.CheckCancellation();
                 long offset = ReadCollectionFaceOffset(i);
-                faces.Add(ReadFace(i, offset, headerEnd));
+                context.Faces.Add(ReadFace(i, offset, headerEnd));
             }
             if(count > allowed) {
                 Error(FontDiagnosticCodes.LimitExceeded, Messages.FaceLimit, CollectionFaceCountOffset,
@@ -225,7 +209,7 @@ namespace Fonts.Metadata.Internal {
             return MetadataTables.U32(data, CollectionHeaderSize + index * sizeof(uint));
         }
         FontMetadata.Face EmptyFace(int index, uint? flavor = null) {
-            return new FontMetadata.Face(index, flavor);
+            return new FontMetadata.Face(index, flavor, source: faceSource);
         }
         FontMetadata.Face ReadFace(int index, long offset, long headerEnd) {
             if(offset < headerEnd || !InBounds(offset, SfntHeaderSize)) {
@@ -261,7 +245,7 @@ namespace Fonts.Metadata.Internal {
             bool directoryError = false, orderReported = false;
             uint previous = 0;
             for(int i = 0; i < count; i++) {
-                context.Token.ThrowIfCancellationRequested();
+                context.CheckCancellation();
                 int pos = start + SfntHeaderSize + i * TableRecordSize;
                 uint tag = MetadataTables.U32(data, pos);
                 var entry = new TableRange(tag,
@@ -299,13 +283,13 @@ namespace Fonts.Metadata.Internal {
             directoryError |= InvalidateOverlappingTables(ranges, index);
             TableMetadata? names = ReadTable(tables.GetValueOrDefault(NameTag), index);
             TableMetadata? os2 = ReadTable(tables.GetValueOrDefault(Os2Tag), index);
-            incompleteSections |= !IsCompleteSection(names.Status) || !IsCompleteSection(os2.Status);
-            hasUsableMetadata |= HasUsableFaceMetadata(names.Status, os2.Status, directoryError);
-            return new FontMetadata.Face(index, flavor, names.Status, os2.Status, names.Records, os2.VendorId, os2.Permissions, names.PreferredNames);
+            context.IncompleteSections |= !IsCompleteSection(names.Status) || !IsCompleteSection(os2.Status);
+            context.HasUsableMetadata |= HasUsableFaceMetadata(names.Status, os2.Status, directoryError);
+            return new FontMetadata.Face(index, flavor, names.Status, os2.Status, names.Records, os2.VendorId, os2.Permissions, names.PreferredNames, faceSource);
         }
         bool OverlapsAnotherDirectory(long start, long end) {
             foreach(var range in directories) {
-                context.Token.ThrowIfCancellationRequested();
+                context.CheckCancellation();
                 if(range.Start != start && start < range.End && end > range.Start)
                     return true;
             }
@@ -319,7 +303,7 @@ namespace Fonts.Metadata.Internal {
             // SFNT tables are separate byte ranges; TTC sharing is handled across faces:
             // https://learn.microsoft.com/en-us/typography/opentype/spec/otff#font-collections
             for(int begin = 0; begin < ranges.Count;) {
-                context.Token.ThrowIfCancellationRequested();
+                context.CheckCancellation();
                 int next = begin + 1;
                 long groupEnd = ranges[begin].Offset + ranges[begin].Length;
                 while(next < ranges.Count && ranges[next].Offset < groupEnd) {
@@ -360,16 +344,9 @@ namespace Fonts.Metadata.Internal {
                     FontDiagnosticCategory.LimitExceeded);
                 return new TableMetadata { Status = FontSectionStatus.NotRead };
             }
-            // Readable ranges have already been bounded by the input span, so these casts are safe.
-            // Cache source metadata and preferred names once, then localize diagnostics per face.
-            var key = (range.Tag, (int)range.Offset, (int)range.Length);
-            if(!context.Tables.TryGetValue(key, out var result)) {
-                var table = data.Slice(key.Item2, key.Item3);
-                result = range.Tag == NameTag
-                    ? MetadataTables.ReadNames(table, key.Item2, context)
-                    : MetadataTables.ReadOs2(table, key.Item2, context);
-                context.Tables.Add(key, result);
-            }
+            // Cache physical source metadata once and localize diagnostics per face.
+            var table = data.Slice((int)range.Offset, (int)range.Length);
+            var result = context.ReadTable(range.Tag, table, source, range.Offset, sourceComplete);
             foreach(var diagnostic in result.Diagnostics)
                 context.Diagnostics.Add(diagnostic.ForFace(index));
             return result;

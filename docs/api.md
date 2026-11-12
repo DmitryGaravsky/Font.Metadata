@@ -14,10 +14,12 @@ FontInspectionResult
 ├── Metadata?                      FontMetadata
 │   ├── Format                     FontFormat
 │   ├── Faces                      IReadOnlyList<FontMetadata.Face>
+│   │   ├── Source                  FontFaceSource (Container / EotMain / EotEudc)
 │   │   ├── NameTableStatus         FontSectionStatus
 │   │   ├── Os2TableStatus          FontSectionStatus
 │   │   └── NameRecords             IReadOnlyList<FontMetadata.NameRecord>
-│   └── Eot?                       FontMetadata.EotHeader (reserved; always null)
+│   ├── EotHeaderStatus            FontSectionStatus
+│   └── Eot?                       FontMetadata.EotHeader (independent facts)
 └── Diagnostics                    IReadOnlyList<FontDiagnostic>
 
 FontReadOptions
@@ -76,7 +78,7 @@ if(result.Metadata is { } font) {
 }
 foreach(FontDiagnostic diagnostic in result.Diagnostics) {
     Console.WriteLine($"{diagnostic.Severity} {diagnostic.Code}: {diagnostic.Message}");
-    Console.WriteLine($"Face={diagnostic.FaceIndex}, table={diagnostic.TableTag}, offset={diagnostic.ByteOffset}");
+    Console.WriteLine($"Face={diagnostic.FaceIndex}, table={diagnostic.TableTag}, offset={diagnostic.ByteOffset}, tableOffset={diagnostic.TableByteOffset}");
 }
 ```
 
@@ -129,20 +131,38 @@ Options and limits are sealed with init-only properties, so an operation can saf
 | --- | ---: | --- |
 | `MaxInputBytes` | 128 MiB | Whole supplied input; oversized input is rejected before parsing |
 | `MaxTableBytes` | 16 MiB | Each supported metadata table |
-| `MaxFaces` | 256 | Inspected collection faces, including unreadable ones |
+| `MaxFaces` | 256 | Inspected collection/EOT faces, including unreadable main payloads |
 | `MaxTablesPerFace` | 4096 | Directory entries; an oversized directory is not processed |
 | `MaxNameRecords` | 4096 | Source records per distinct name table, including invalid ones |
-| `MaxNameStringBytes` | 4 MiB | Distinct encoded string bytes attempted per name table, including referenced language tags |
+| `MaxNameStringBytes` | 4 MiB | Distinct encoded string bytes attempted per name table (including referenced language tags), or per EOT header (four strings plus RootString) |
 | `MaxTotalNameStringBytes` | 16 MiB | Same string work across the whole container |
 | `MaxDiagnostics` | 256 | Reported diagnostics, including any final suppression marker |
+| `MaxTotalDecodedBytes` | 128 MiB | All decompression output/work, including discarded bytes, secondary MTX streams and failed attempts |
+| `MaxMtxPayloadBytes` | 64 MiB | LZ plus optional RLE output of all three streams of one MTX payload |
+| `MaxExpansionRatio` | 1000 | Work per compressed unit divided by its compressed input length |
+| `MaxWoff2Tables` | 16384 | Global WOFF2 dictionary entries |
+| `MaxWoff2TableReferences` | 1048576 | All traversed collection references, including duplicates and skipped faces |
+| `MaxRetainedDecodedBytes` | 64 MiB | Simultaneously live controlled buffer capacities, including LZ windows, XOR copies and resize overlap |
 
 All limits must be positive. `MaxInputBytes` must also be at most `Array.MaxLength - 1`. Invalid options throw before reading. These limits bound processing work, not exact managed heap use; strings, records, diagnostics and buffering have additional overhead.
 
 Repeated string references with the same range and encoding are decoded once per table. Exact shared table ranges with the same tag are parsed once across faces, including preferred-value selection. Repeated references to decoded strings reuse normalization results, including blank values. Invalid decode attempts count against string budgets; recovery never resets budgets. Strings that exceed a budget are skipped, allowing later smaller or already decoded strings to survive. A limit is reported explicitly and never silently produces `Complete`.
 
+WOFF applies the ratio to each compressed table; WOFF2 to its full Brotli stream; MTX to each LZCOMP stream including that stream's optional RLE work. During recovery from a truncated or overlapping WOFF2 range, only available input before a bounded optional block contributes to the ratio; absent or conflicting bytes cannot enlarge the budget. Non-RLE output is counted once. Main and EUDC share the total work budget, while each MTX payload has its own payload cap. Failed work is not refunded; unused budget remains available to independent data. Raw/XOR copies consume retained capacity but are not decompression work. Retained capacity excludes caller input, returned strings, fixed scratch space and codec internals.
+
+A WOFF2 face limit still requires bounded traversal of the remaining descriptors to locate compressed data. Every reference consumes the reference budget. Loss of framing or exhaustion of that budget prevents guessing the compressed start.
+
+## EOT header and provenance
+
+`EotHeaderStatus` is Missing with null `Eot` for non-EOT inputs, NotRead before EOT parsing (including input limits), Invalid for a malformed header without additional facts, and Partial when some facts survive. Complete refers to header structure independently of payload decoding.
+
+`EotHeader` exposes nullable `FormatVersion` and `Flags` (uint), `EmbeddingPermissions` (ushort), `FamilyName`, `StyleName`, `FullName`, `Version` (strings), and `EudcCodePage`, `EudcFlags`, `EudcFontDataSize` (uint). FormatVersion is the container version; Version is header text. Nullable fields distinguish absence/unavailability from verified zero or empty values. Header strings preserve whitespace and NULs. RootString and Signature are not published.
+
+`Face.Source` is `FontFaceSource.Container` for SFNT/TTC/WOFF/WOFF2, `EotMain` for index 0, and `EotEudc` for index 1. EUDC never becomes index 0 after main failure. Header facts never replace face fields or create name records. The overall Format stays Eot.
+
 ## Face and record properties
 
-`FontMetadata.Face` exposes `Index`, nullable raw `SfntFlavor`, both table states, source `NameRecords`, `VendorId`, and nullable raw `ushort EmbeddingPermissions`. Zero flags are distinct from missing flags.
+`FontMetadata.Face` exposes `Index`, `Source`, nullable raw `SfntFlavor`, both table states, source `NameRecords`, `VendorId`, and nullable raw `ushort EmbeddingPermissions`. Zero flags are distinct from missing flags.
 
 Preferred string properties are `FamilyName`, `SubfamilyName`, `FullName`, `PostScriptName`, `Version`, `Copyright`, `Trademark`, `Manufacturer`, `Designer`, `Description`, `VendorUrl`, `DesignerUrl`, `LicenseDescription` and `LicenseUrl`.
 
@@ -174,6 +194,6 @@ if(inspection.Metadata is { } font) {
 
 ## Capability helpers and deferred features
 
-`FontMetadataReader.IsFormatSupported(format)` reports implemented container readers: `Sfnt` and `Collection`. `HasFontExtension(path)` recognizes .ttf, .otf, .ttc, .otc, .woff, .woff2 and .eot case-insensitively. An extension is not evidence of valid or supported content.
+`FontMetadataReader.IsFormatSupported(format)` reports implemented container readers: `Sfnt`, `Collection`, `Woff`, `Woff2` and `Eot`. `HasFontExtension(path)` recognizes .ttf, .otf, .ttc, .otc, .woff, .woff2 and .eot case-insensitively. An extension is not evidence of valid or supported content.
 
-`FontMetadata.EotHeader` preserves the agreed public model name; `FontMetadata.Eot` is always null until EOT reading exists. There is no embedded-font search API or CLI inspection yet. License strings and embedding flags are source facts; they do not establish permission to use or redistribute a font.
+There is no embedded-font search API or CLI inspection yet. License strings and embedding flags are source facts; they do not establish permission to use or redistribute a font.

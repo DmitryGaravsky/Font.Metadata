@@ -4,13 +4,13 @@ This is the single source of rules for coding agents working in this repository.
 
 ## Scope and current implementation
 
-The library implements SFNT/TTC metadata reading with partial results, per-table statuses and diagnostics. The repository also contains CLI help/version commands, tests, packaging checks and CI. Separate license analysis of decoded name records is implemented. WOFF/WOFF2/EOT reading, embedded search and CLI inspection are not implemented yet.
+The library implements SFNT/TTC, WOFF, WOFF2 and EOT metadata reading with partial results, per-table statuses and diagnostics. The repository also contains CLI help/version commands, tests, packaging checks and CI. Separate license analysis of decoded name records is implemented. WOFF2 collections and EOT main/EUDC payloads use shared budgets and preserve independent metadata. Embedded search and CLI inspection are not implemented yet.
 
 Work directly in this repository for its authorized tasks. Changes to external consumers require an explicit request. Preserve unrelated concurrent changes.
 
 ## Git ownership
 
-Agents may read and inspect the repository using Git, including status, diff, log, show, blame, ls-files and other read-only analysis operations. Editing project files and running build/test checks are allowed within the authorized task. The user performs operations that change Git state or remote repository state after reviewing the changes. Do not stage, commit, create or switch branches, manage worktrees, merge, rebase, stash, reset, clean, create or delete tags, change remotes, fetch, pull or push. Do not modify Git metadata directly or use wrappers or repository-management APIs to bypass this rule. Provide a suggested commit message only when requested. This rule applies unless the user explicitly changes it.
+Agents may read and inspect the repository using Git, including status, diff, log, show, blame, ls-files and other read-only analysis operations. Editing project files and running build/test checks are allowed within the authorized task. The user performs operations that change Git state or remote repository state after reviewing the changes. Do not stage, commit, create or switch branches, manage worktrees, merge, rebase, stash, reset, clean, create or delete tags, change remotes, fetch, pull or push. Do not modify Git metadata directly or use wrappers or repository-management APIs to bypass this rule. At the end of each reasonably complete implementation task, include a suggested commit title in the final response without waiting for a separate request. This rule applies unless the user explicitly changes it.
 
 Keep research, comparisons with original projects and temporary planning outside the repository. Do not embed local workspace paths or research transcripts in product documentation.
 
@@ -91,3 +91,4 @@ These invariants apply to implemented and future readers:
 - Use UTF text diagrams, never Mermaid. Update diagrams when type ownership, dependencies or execution flow changes.
 - Verify relative links and examples. Report exactly what ran; local success does not imply a GitHub-hosted run passed.
 - Inspect the complete change and report the outcome, verification and remaining limitations. Do not stage or commit automatically.
+- At the end of a major implementation phase, review the PR description against the final scope, behavior and validation results. If it is outdated, propose a revised description for the user to apply.

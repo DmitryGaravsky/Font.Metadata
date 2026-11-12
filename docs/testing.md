@@ -1,6 +1,6 @@
 # Testing
 
-The suite exercises the public SFNT/TTC reading API, partial recovery, resource limits, license evidence, packaging and current CLI behavior.
+The suite exercises the public SFNT/TTC/WOFF/WOFF2/EOT reading API, partial recovery, resource limits, license evidence, packaging and current CLI behavior.
 
 ## Available checks
 
@@ -11,12 +11,16 @@ The suite exercises the public SFNT/TTC reading API, partial recovery, resource 
 | Name decoding | Formats 0/1, language references, UTF-16 errors, MacRoman, Windows CJK, unsupported encodings |
 | OS/2 | Vendor and raw fsType; truncated prefixes and unsupported versions; recovery independent of name data |
 | TTC | Versions 1/2, absolute offsets, failed face placeholders, stable indexes, shared tables and per-face diagnostics |
+| WOFF | Raw/zlib combinations, exact output/trailer/checksum/member consumption, independent recovery and optional block layout |
+| WOFF2 | Single/collection, shared tables, integer encodings, transforms, discarded output, partial Brotli recovery and bounded descriptor traversal |
+| EOT/MTX | Versioned header facts, raw/XOR/LZCOMP/RLE, main/EUDC independence, root checksum/signature framing and all-stream budgets |
+| Source coordinates | Logical table offsets and physical anchors across raw/compressed main/EUDC data, slices and positioned streams |
 | Directories | Bounds, integer extremes, duplicate tags, overlaps, unsorted entries and independent table recovery |
 | Limits | Input, table, face, directory, record, per-table/global string and diagnostic budgets; failed decode accounting |
 | Input contracts | Arrays/slices/span/memory, file ownership, short reads, non-seekable streams, position restoration, I/O and cancellation |
 | Recovery regressions | Unsupported sibling headers, unreadable language references, preferred-value fallback and raw evidence preservation |
 | Allocation regressions | Long repeated records and shared preferred values, with generous managed-allocation ceilings rather than timing thresholds |
-| Cancellation during parsing | Deterministic cancellation during preferred-name selection through internal test access, without timing races |
+| Cancellation during parsing | Deterministic cancellation during preferred-name selection, directory/header traversal, XOR, Brotli, LZ copy and RLE through internal test access, without timers |
 | Robustness | Every truncation of representative inputs and deterministic seeded mutations through the public API |
 | License rules | Every supported ID/name/family and URL; exact context, negations, quotes, versions, compound expressions and URI spoofing |
 | License contract | Original-record identity, duplicates, conflicts, all name statuses, immutable results, cultures and concurrent calls |
@@ -24,7 +28,7 @@ The suite exercises the public SFNT/TTC reading API, partial recovery, resource 
 | CLI | Help aliases, version, unsupported inspection and invalid arguments through a child process |
 | Library package | net10.0 assembly, XML documentation and README; no other framework assets or CLI payload |
 | Package licensing | MIT declaration, author/copyright, project/repository metadata and bundled LICENSE |
-| Isolated consumer | Compile and execute real strict/partial reads and complete/partial license analysis against the generated library nupkg, including source identity and immutable hints |
+| Isolated consumer | Compile and execute real strict/partial reads and complete/partial license analysis against the generated library nupkg, including source identity, immutable hints, web formats, EOT fields/provenance, logical diagnostic offsets and new limits; zlib host strict-validation settings run in separate processes |
 | Release scripts | Tag validation, checksum failures, draft recovery, asset collisions and no-op retries with a local GitHub CLI substitute |
 | Installed tool | Fresh local package cache/tool path; help and version |
 
@@ -32,7 +36,11 @@ The suite exercises the public SFNT/TTC reading API, partial recovery, resource 
 
 Font fixtures are synthetic byte sequences authored in this repository and covered by its MIT license. No proprietary fonts or third-party font binaries are redistributed. FontFixtures uses independent byte-writing helpers; at least one fixed hexadecimal vector exercises reading without relying on the fixture builder. Legacy-encoding vectors contain explicit source bytes.
 
+WebFontFixtures independently writes container layouts and uses BCL compression for WOFF/Brotli. EotMtxFixtures contains synthetic Windows TTEmbed output with and without RLE. EotFontVectors contains independent Google sfntly output, with the pinned source revision and input descriptions recorded alongside the vectors. The [long-copy recipe](../Font.Metadata.Tests/TestData/mtx-copy-loop.md) documents reproducibility. No encoder, Windows font API, Java or network access is required during tests.
+
 Fixtures focus on observable contracts. Recovery tests assert preserved values, original indexes, table statuses and diagnostic codes rather than exception message text. Faulting and short-read streams verify ownership and propagation. Culture tests restore their original culture. Mutation checks are deterministic regression probes, not a claim of exhaustive fuzzing or full OpenType conformance.
+
+The web-container review regressions cover inflated compressed-length declarations, optional-block overlap versus independent failure, final WOFF padding, RootString work accounting (including invalid UTF-16), resize cancellation, copy-chunk boundaries and preservation of unsupported payload flavors.
 
 ## Full verification
 
@@ -66,7 +74,7 @@ The GitHub publication script is tested with a local command substitute; these c
 
 ## Extending coverage
 
-Parser changes require independent valid/malformed fixtures, bounds, resource-limit and cancellation checks. Keep existing recovery contracts while adding container support. WOFF/WOFF2/EOT decoding, embedded search and CLI reports are not implemented or covered as successful operations yet.
+Parser changes require independent valid/malformed fixtures, bounds, resource-limit and cancellation checks. Keep existing recovery contracts while adding container support. Embedded search and CLI reports are not implemented or covered as successful operations yet.
 
 License matching tests use independent expected strings and synthetic name tables, rather than enumerating production dictionaries. Contract tests exercise reader-produced complete/partial faces and all section states; internal construction is reserved for isolated status and stress cases that cannot be represented within name wire limits. Boundary regressions cover continued titles, quoted semicolons, standalone SPDX annotation lines and their rejected continuations. Long-input tests do not use fragile timing assertions. Shared-text allocation tests warm the implementation before measuring with a generous ceiling.
 

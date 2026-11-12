@@ -154,9 +154,9 @@ namespace Fonts.Metadata.Tests {
             prefix[magicOffset] = 0x4c;
             prefix[magicOffset + 1] = 0x50;
             var result = FontMetadataReader.Inspect(prefix);
-            Assert.That(result.Status, Is.EqualTo(FontReadStatus.Unsupported));
+            Assert.That(result.Status, Is.EqualTo(FontReadStatus.Failed));
             Assert.That(result.Metadata!.Format, Is.EqualTo(FontFormat.Eot));
-            Assert.That(result.Diagnostics.Single().Code, Is.EqualTo(FontDiagnosticCodes.UnsupportedFormat));
+            Assert.That(result.Diagnostics.Single().Code, Is.EqualTo(FontDiagnosticCodes.InvalidEotHeader));
             Assert.That(FontMetadataReader.Inspect(prefix.AsSpan(0, prefixSize - 1)).Status, Is.EqualTo(FontReadStatus.NotRecognized));
             prefix[magicOffset] = 0x50;
             prefix[magicOffset + 1] = 0x4c;

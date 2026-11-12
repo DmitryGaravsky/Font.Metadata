@@ -1,6 +1,18 @@
 namespace Fonts.Metadata {
     /// <summary>Stable diagnostic identifiers. Message text is not a machine-readable contract.</summary>
     public static class FontDiagnosticCodes {
+        /// <summary>A container header or block layout is invalid.</summary>
+        public const string InvalidContainer = "FM_INVALID_CONTAINER";
+        /// <summary>A compressed stream is invalid, truncated or has excess input/output.</summary>
+        public const string InvalidCompressedData = "FM_INVALID_COMPRESSED_DATA";
+        /// <summary>An EOT header field, framing or root checksum is invalid.</summary>
+        public const string InvalidEotHeader = "FM_INVALID_EOT_HEADER";
+        /// <summary>A table transform version is unsupported.</summary>
+        public const string UnsupportedTransform = "FM_UNSUPPORTED_TRANSFORM";
+        /// <summary>EOT payload processing flags are unsupported.</summary>
+        public const string UnsupportedFlags = "FM_UNSUPPORTED_FLAGS";
+        /// <summary>A nonconforming container field was safely accepted.</summary>
+        public const string NonConformantContainer = "FM_NONCONFORMANT_CONTAINER";
         /// <summary>An SFNT directory or table range is invalid.</summary>
         public const string InvalidDirectory = "FM_INVALID_DIRECTORY";
         /// <summary>A TTC header or face directory reference is invalid.</summary>

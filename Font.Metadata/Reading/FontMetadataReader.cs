@@ -35,8 +35,7 @@ namespace Fonts.Metadata {
             cancellationToken.ThrowIfCancellationRequested();
             if(data.Length > limits.MaxInputBytes)
                 return SfntParser.InputLimit(data.Slice(0, limits.MaxInputBytes));
-            var parser = new SfntParser(data, limits, cancellationToken);
-            return parser.Parse();
+            return ContainerParser.Parse(data, limits, cancellationToken);
         }
         /// <summary>Inspects from the current stream position; never closes the stream and restores seekable positions in finally.</summary>
         /// <remarks>Non-seekable streams are consumed. Input beyond MaxInputBytes is not parsed. I/O and cancellation exceptions propagate.</remarks>
@@ -111,7 +110,7 @@ namespace Fonts.Metadata {
         }
         /// <summary>Reports implemented readers, not whether a particular byte sequence is valid.</summary>
         public static bool IsFormatSupported(FontFormat format) {
-            return format is FontFormat.Sfnt or FontFormat.Collection;
+            return format is FontFormat.Sfnt or FontFormat.Collection or FontFormat.Woff or FontFormat.Woff2 or FontFormat.Eot;
         }
         /// <summary>Recognizes common font filename extensions, including containers whose readers are not yet implemented.</summary>
         public static bool HasFontExtension(string path) {
@@ -120,8 +119,7 @@ namespace Fonts.Metadata {
         }
         static FontInspectionResult InspectBufferedContent(MemoryStream content, FontReadLimits limits, CancellationToken token) {
             var bytes = content.GetBuffer().AsSpan(0, (int)content.Length);
-            var parser = new SfntParser(bytes, limits, token);
-            return parser.Parse();
+            return ContainerParser.Parse(bytes, limits, token);
         }
         static FontMetadata RequireComplete(FontInspectionResult result) {
             if(result.Status == FontReadStatus.Complete)

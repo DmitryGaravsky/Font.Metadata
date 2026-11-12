@@ -29,6 +29,14 @@ Each face exposes `NameTableStatus` and `Os2TableStatus`.
 
 A missing family name does not imply a missing name table. An unreadable directory produces NotRead, not Missing. OS/2 may be Partial with readable embedding flags and no vendor identifier. Missing is not an error by itself. Whole-file completeness is separate from each table's completeness: for example, an invalid unrelated table range can make inspection Partial while both metadata tables are Complete.
 
+## Compressed recovery and EOT
+
+An invalid WOFF compressed table publishes no decoded values. WOFF2 tables received completely before a later stream failure can be parsed, but Complete table status is downgraded to Partial; unfinished buffers remain Invalid or NotRead according to the cause. The same rule applies to metadata from a complete first MTX stream when a secondary stream fails. Proven Missing is not downgraded. License analysis consequently reports IsSourceComplete=false for salvaged name records.
+
+An independent optional-block error does not downgrade a fully verified WOFF2 Brotli source. A conflicting bounded block limits the source to the preceding unambiguous prefix; completely received tables can survive as Partial.
+
+EOT header completeness is independent of face statuses. A complete header can coexist with unsupported payloads; partially decoded headers preserve verified facts. Header diagnostics belong to the container, while main/EUDC diagnostics identify face 0/1. A shared WOFF2 stream failure has no face or table tag; a WOFF table failure identifies both.
+
 ## Diagnostic data
 
 `FontDiagnostic` exposes:
@@ -37,18 +45,36 @@ A missing family name does not imply a missing name table. An unreadable directo
 - `Severity`: Warning or Error.
 - `Category`: MalformedData, LimitExceeded, UnsupportedFeature, UnsupportedEncoding or NonConformantData.
 - `Message`: English explanation for humans; do not parse it for policy decisions.
-- Nullable `FaceIndex`, `TableTag`, `ByteOffset`: available source context.
+- Nullable `FaceIndex`, `TableTag`, `ByteOffset`, `TableByteOffset`: available source context.
 
 Offsets are relative to the supplied input origin, not the original file position of a slice or stream. Shared-table diagnostics are reported with each referencing face's original index. No caller file path or source bytes are inserted into messages.
 
+TableByteOffset is the position inside a logical decoded metadata table, when known. Directory/framing and whole-stream errors do not invent a table offset.
+
+| Storage | ByteOffset for a table error |
+| --- | --- |
+| Raw SFNT/TTC/WOFF | Actual position in the supplied input |
+| Raw/XOR EOT | Payload start plus local SFNT table/error position |
+| Zlib WOFF | Start of that compressed table |
+| Brotli WOFF2 | Start of the common compressed font stream |
+| MTX main/EUDC | Start of that payload's first LZCOMP stream (MTX header + 10) |
+
+Decoded offsets are never added to a compressed anchor. Both coordinates remain unchanged when the same container is supplied through a nonzero array slice or a stream positioned after a prefix.
+
 | Code | Typical cause |
 | --- | --- |
+| FM_INVALID_CONTAINER | Malformed WOFF/WOFF2 header, layout or optional block framing |
+| FM_INVALID_COMPRESSED_DATA | Invalid/truncated stream, checksum, extra input/output or MTX/RLE failure |
+| FM_INVALID_EOT_HEADER | Invalid EOT fields, strings, padding, root checksum or signature framing |
+| FM_UNSUPPORTED_TRANSFORM | Unknown transformation version |
+| FM_UNSUPPORTED_FLAGS | Unsupported EOT payload flags |
+| FM_NONCONFORMANT_CONTAINER | Permitted deviation, such as nonzero WOFF2 reserved fields (Warning) |
 | FM_INVALID_DIRECTORY | Truncated header/directory, invalid ranges, duplicate tags or overlaps |
 | FM_INVALID_COLLECTION | Empty or truncated TTC header/offset array |
 | FM_INVALID_NAME_TABLE | Invalid record range, byte sequence or language reference |
 | FM_INVALID_OS2_TABLE | Truncated metadata prefix or invalid vendor bytes |
 | FM_UNSUPPORTED_FORMAT | Recognized container or face flavor without a reader |
-| FM_UNSUPPORTED_TABLE_VERSION | Unsupported TTC, name or OS/2 version |
+| FM_UNSUPPORTED_TABLE_VERSION | Unsupported TTC/WOFF2 collection, name or OS/2 version |
 | FM_UNSUPPORTED_ENCODING | Unsupported name platform/encoding pair |
 | FM_LIMIT_EXCEEDED | Configured processing budget exhausted |
 | FM_NONCONFORMANT_DIRECTORY | Safe but unsorted or unaligned directory data |
