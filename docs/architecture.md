@@ -1,6 +1,6 @@
 # Architecture
 
-The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC reading. The CLI currently exposes help/version; reporting remains a future component. License evidence analysis is an independent operation on decoded records.
+The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC, WOFF, WOFF2 and EOT reading. The CLI currently exposes help/version; reporting remains a future component. License evidence analysis is an independent operation on decoded records.
 
 ## Repository layout
 
@@ -14,13 +14,23 @@ Font.Metadata/
 ├── Font.Metadata/
 │   ├── FontMetadata.cs                  immutable metadata and nested models
 │   ├── FontFormat.cs                    source container format
+│   ├── FontFaceSource.cs                container/main/EUDC provenance
 │   ├── Reading/
 │   │   ├── FontMetadataReader.cs        input ownership and Read/Inspect entry points
 │   │   ├── FontReadOptions.cs           reading configuration
 │   │   ├── FontReadLimits.cs            processing budgets
 │   │   ├── FontReadException.cs         strict-read exceptions with inspection results
 │   │   └── Internal/
-│   │       ├── SfntParser.cs            container/directory validation and face recovery
+│   │       ├── ContainerParser.cs       shared format dispatch and result assembly
+│   │       ├── SfntParser.cs            SFNT/TTC directory validation and face recovery
+│   │       ├── WoffParser.cs            independent raw/zlib metadata tables
+│   │       ├── ZlibTableDecoder.cs      exact single-member zlib completion
+│   │       ├── Woff2Parser*.cs          dictionary, collections and streamed Brotli
+│   │       ├── EotParser.cs             separate header, main and EUDC recovery
+│   │       ├── MtxDecoder.cs            bounded LZCOMP and optional RLE
+│   │       ├── DecodeBudget.cs          shared work and live buffer accounting
+│   │       ├── SourceLocation.cs        physical offsets and compressed anchors
+│   │       ├── ContainerLayout.cs       checked shared container layout helpers
 │   │       ├── MetadataTables.cs        name and OS/2 decoding
 │   │       ├── NameTableDefinitions.cs  shared name/platform/encoding identifiers
 │   │       ├── NameSelection.cs         deterministic preferred values
@@ -68,7 +78,7 @@ Source folders group responsibilities without defining additional public namespa
  Local tool nupkg ─────→ isolated tool-path installation
 ```
 
-The library has no application-layer dependencies, package dependencies or project references. It uses the .NET 10 runtime, including its code-page provider. The tool owns console behavior. Tests exercise public contracts. A deterministic cancellation check uses InternalsVisibleTo for the existing internal name-selection operation; no public test hooks are introduced.
+The library has no application-layer dependencies, package dependencies or project references. It uses the .NET 10 runtime, including its code-page provider and zlib/Brotli codecs. MTX is decoded in managed code without native font APIs. The tool owns console behavior. Tests exercise public contracts. Deterministic cancellation checks use InternalsVisibleTo for name selection and operation-local cancellation checkpoints; no public test hooks or global switches are introduced.
 
 ## Reading flow
 
@@ -82,9 +92,12 @@ The library has no application-layer dependencies, package dependencies or proje
                          ▼
            one operation / leading input origin
                          │
-                   SFNT or TTC
+            SFNT/TTC / WOFF / WOFF2 / EOT
                          ▼
        bounded header and directory validation
+                         │
+           raw or bounded decompression
+              EOT header kept separately
                          │
              per-face independent recovery
                          ▼
@@ -105,7 +118,11 @@ The library has no application-layer dependencies, package dependencies or proje
 
 All offsets and sizes are validated before slicing or allocation. Independent tables and faces survive local data failures. Collection and source-record indexes are preserved. Format constraints and configurable budgets are distinct. Read and Inspect never diverge into separate parsers.
 
-Options and limits are sealed, init-only values. An operation owns its diagnostics, table cache and string accounting; there are no global mutable caches or implicit encoding-provider registrations. Shared data is reused only within the operation. Each distinct name table owns its preferred-value selection; faces referencing that table reuse its selected strings. Returned records and diagnostics have no mutable backing arrays accessible to callers.
+Options and limits are sealed, init-only values. An operation owns its diagnostics, source-aware table cache, string accounting, decoded-work budgets and live-buffer accounting; there are no global mutable caches or implicit encoding-provider registrations. Shared data is reused only within the operation. Each distinct name table owns its preferred-value selection; faces referencing that table reuse its selected strings. Returned records and diagnostics have no mutable backing arrays accessible to callers.
+
+Distinct decoded buffers receive distinct source identities. Cache keys include source, tag, local offset and length; shared WOFF2/TTC tables reuse immutable metadata while diagnostics are localized per face. Raw/XOR data maps directly to input offsets; compressed errors use physical block anchors plus a separate logical table offset.
+
+Brotli output is streamed through fixed scratch space and only selected metadata is retained. MTX validates all three streams and retains only a complete first CTF stream. Work counters survive expected failures; scoped buffers release retained capacity without refunding decoded work. Resizing accounts for both old and new capacities.
 
 ## Public ownership
 
@@ -120,13 +137,13 @@ namespace Fonts.Metadata
 ├── FontMetadata
 │   ├── Face ──→ NameRecord
 │   ├── NameRecord
-│   └── EotHeader (reserved)
-├── FontReadStatus / FontSectionStatus / FontFormat
+│   └── EotHeader (independent container facts)
+├── FontReadStatus / FontSectionStatus / FontFormat / FontFaceSource
 ├── FontDiagnosticSeverity / FontDiagnosticCategory / FontDiagnosticCodes
 └── FontReadException / FontFeatureNotSupportedException
 ```
 
-Only data models nest under FontMetadata. Operations, options, status types and diagnostics remain independent. The reserved EotHeader model is not instantiated until EOT support exists. FontLicenseAnalyzer operates on existing face records, without parser I/O or consumer-specific policy.
+Only data models nest under FontMetadata. Operations, options, status types and diagnostics remain independent. EotHeader is created only when additional verified facts exist beyond container recognition. FontLicenseAnalyzer operates on existing face records, without parser I/O or consumer-specific policy.
 
 ## License analysis flow
 

@@ -169,13 +169,13 @@ namespace Fonts.Metadata.Tests {
         }
         [TestCase("774F4646", FontFormat.Woff)]
         [TestCase("774F4632", FontFormat.Woff2)]
-        public void RecognizedFutureContainersAreExplicitlyUnsupported(string hex, FontFormat format) {
+        public void RecognizedWebContainersWithTruncatedHeadersAreMalformed(string hex, FontFormat format) {
             byte[] bytes = Convert.FromHexString(hex);
             var result = FontMetadataReader.Inspect(bytes);
-            Assert.That(result.Status, Is.EqualTo(FontReadStatus.Unsupported));
+            Assert.That(result.Status, Is.EqualTo(FontReadStatus.Failed));
             Assert.That(result.Metadata!.Format, Is.EqualTo(format));
-            Assert.That(FontMetadataReader.IsFormatSupported(format), Is.False);
-            var exception = Assert.Throws<FontFeatureNotSupportedException>(() => FontMetadataReader.Read(bytes))!;
+            Assert.That(FontMetadataReader.IsFormatSupported(format), Is.True);
+            var exception = Assert.Throws<FontReadException>(() => FontMetadataReader.Read(bytes))!;
             Assert.That(exception.Result.Metadata!.Format, Is.EqualTo(format));
             Assert.That(FontMetadataReader.HasFontExtension("FONT.WOFF2"), Is.True);
         }

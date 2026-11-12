@@ -25,16 +25,16 @@ namespace Fonts.Metadata.Internal {
         // name formats 0/1: six-byte header, twelve-byte name records and optional four-byte language records.
         // Offsets into string storage are relative to storageOffset, not to the table origin.
         // https://learn.microsoft.com/en-us/typography/opentype/spec/name
-        internal static TableMetadata ReadNames(ReadOnlySpan<byte> table, int origin, ReadingContext context) {
+        internal static TableMetadata ReadNames(ReadOnlySpan<byte> table, SourceLocation origin, ReadingContext context) {
             var reader = new NameReader(table, origin, context);
             return reader.Read();
         }
-        internal static TableMetadata ReadOs2(ReadOnlySpan<byte> table, int origin, ReadingContext context) {
-            context.Token.ThrowIfCancellationRequested();
+        internal static TableMetadata ReadOs2(ReadOnlySpan<byte> table, SourceLocation origin, ReadingContext context) {
+            context.CheckCancellation();
             var diagnostics = new DiagnosticBag(context.Limits.MaxDiagnostics);
             void Error(string code, string message, int relative, FontDiagnosticCategory category = FontDiagnosticCategory.MalformedData) {
                 var diagnostic = new FontDiagnostic(code, FontDiagnosticSeverity.Error, category, message,
-                    tableTag: Os2TableTag, byteOffset: origin + relative);
+                    tableTag: Os2TableTag, byteOffset: origin.Map(relative), tableByteOffset: relative);
                 diagnostics.Add(diagnostic);
             }
             if(table.Length < sizeof(ushort)) {
@@ -151,14 +151,14 @@ namespace Fonts.Metadata.Internal {
             const int Utf16CodeUnitSize = sizeof(ushort);
 
             readonly ReadOnlySpan<byte> table;
-            readonly int origin;
+            readonly SourceLocation origin;
             readonly ReadingContext context;
             readonly DiagnosticBag diagnostics;
             readonly Dictionary<(int Offset, int Length, int CodePage), string?> strings;
             readonly List<FontMetadata.NameRecord> records;
             long decodedBytes;
             bool malformed, unsupported, limited;
-            internal NameReader(ReadOnlySpan<byte> table, int origin, ReadingContext context) {
+            internal NameReader(ReadOnlySpan<byte> table, SourceLocation origin, ReadingContext context) {
                 this.table = table;
                 this.origin = origin;
                 this.context = context;
@@ -171,7 +171,7 @@ namespace Fonts.Metadata.Internal {
                 unsupported |= category is FontDiagnosticCategory.UnsupportedFeature or FontDiagnosticCategory.UnsupportedEncoding;
                 limited |= category == FontDiagnosticCategory.LimitExceeded;
                 var diagnostic = new FontDiagnostic(code, FontDiagnosticSeverity.Error, category, message,
-                    tableTag: NameTableTag, byteOffset: (long)origin + offset);
+                    tableTag: NameTableTag, byteOffset: origin.Map(offset), tableByteOffset: offset);
                 diagnostics.Add(diagnostic);
             }
             TableMetadata Result() {
@@ -229,7 +229,7 @@ namespace Fonts.Metadata.Internal {
                 ValidateLanguageStrings(recordsEnd, languageCount, storage);
                 int allowed = Math.Min(count, context.Limits.MaxNameRecords);
                 for(int i = 0; i < allowed; i++) {
-                    context.Token.ThrowIfCancellationRequested();
+                    context.CheckCancellation();
                     int pos = HeaderSize + i * RecordSize;
                     ushort platform = U16(table, pos + PlatformOffset), encodingId = U16(table, pos + EncodingOffset);
                     ushort language = U16(table, pos + LanguageOffset), nameId = U16(table, pos + NameIdOffset);
@@ -268,7 +268,7 @@ namespace Fonts.Metadata.Internal {
                 // to the shared storage area. Unused tags are checked without consuming decode budgets.
                 // https://learn.microsoft.com/en-us/typography/opentype/spec/name#naming-table-version-1
                 for(int i = 0; i < languageCount; i++) {
-                    context.Token.ThrowIfCancellationRequested();
+                    context.CheckCancellation();
                     int pos = GetLanguageRecordPosition(recordsEnd, i);
                     int length = U16(table, pos), offset = storage + U16(table, pos + LanguageStringOffsetField);
                     if(!IsStringInBounds(offset, length) || length % Utf16CodeUnitSize != 0)

@@ -88,6 +88,7 @@ try {
 using System;
 using System.Reflection;
 using Fonts.Metadata;
+AppContext.SetSwitch("System.IO.Compression.UseStrictValidation", bool.Parse(args[1]));
 const string UnexpectedAssemblyMessage = "Unexpected assembly identity.";
 const string LibraryVersionMismatchMessage = "Library version does not match the package version.";
 const string CompleteReadFailureMessage = "Packaged reader failed the complete metadata contract.";
@@ -157,10 +158,149 @@ FontLicenseAnalysis emptyAnalysis = FontLicenseAnalyzer.Analyze(font.Faces[0]);
 if(!emptyAnalysis.IsSourceComplete || emptyAnalysis.Hints.Count != 0)
     throw new Exception(LicenseAnalysisFailureMessage);
 Console.WriteLine(LicenseAnalysisVerifiedMessage);
+
+// Web-container consumers compile the additive API and exercise real packaged readers.
+const string WebContractFailureMessage = "Packaged web-font metadata contract failed.";
+var webLimits = new FontReadLimits {
+    MaxTotalDecodedBytes = 128 * 1024 * 1024, MaxMtxPayloadBytes = 64 * 1024 * 1024,
+    MaxExpansionRatio = 1000, MaxWoff2Tables = 16384, MaxWoff2TableReferences = 1048576,
+    MaxRetainedDecodedBytes = 64 * 1024 * 1024
+};
+byte[] name = licensed.AsSpan(28).ToArray();
+byte[] paddedName = new byte[1024];
+name.CopyTo(paddedName, 0);
+byte[] woff = MakeWoff(paddedName);
+byte[] woff2 = MakeWoff2(name);
+byte[] eot = MakeEot(licensed);
+foreach(byte[] input in new[] { woff, woff2, eot }) {
+    FontMetadata web = FontMetadataReader.Read(input, new FontReadOptions { Limits = webLimits });
+    if(!FontMetadataReader.IsFormatSupported(web.Format) || FontLicenseAnalyzer.Analyze(web.Faces[0]).Hints[0].Identifier != "MIT")
+        throw new Exception(WebContractFailureMessage);
+    if(web.Format == FontFormat.Eot) {
+        FontMetadata.EotHeader header = web.Eot;
+        if(web.EotHeaderStatus != FontSectionStatus.Complete || header.FormatVersion != 0x00020002 ||
+            header.Flags != 0x20 || header.EmbeddingPermissions != 2 || header.FamilyName != "" ||
+            header.StyleName != "" || header.FullName != "" || header.Version != "" ||
+            header.EudcCodePage != 1252 || header.EudcFlags != 0 || header.EudcFontDataSize != licensed.Length ||
+            web.Faces[0].Source != FontFaceSource.EotMain || web.Faces[1].Source != FontFaceSource.EotEudc ||
+            web.Faces[1].Index != 1)
+            throw new Exception(WebContractFailureMessage);
+    }
+    else if(web.Eot != null || web.EotHeaderStatus != FontSectionStatus.Missing || web.Faces[0].Source != FontFaceSource.Container)
+        throw new Exception(WebContractFailureMessage);
+    if(web.Faces is System.Collections.IList list) {
+        try {
+            list.Clear();
+            throw new Exception(WebContractFailureMessage);
+        } catch(NotSupportedException) {
+        }
+    }
+}
+if(result.Diagnostics[0].TableByteOffset != 32)
+    throw new Exception(WebContractFailureMessage);
+// Exact trailer validation must be invariant under the host's strict-validation switch.
+uint stored = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(woff.AsSpan(52));
+Write32(woff, 52, stored - 1);
+foreach(int chunkSize in new[] { 1, 7, 4096 }) {
+    using(var stream = new ChunkedInput(woff, chunkSize)) {
+        FontInspectionResult truncated = FontMetadataReader.Inspect(stream);
+        if(truncated.Status == FontReadStatus.Complete || truncated.Metadata.Faces[0].NameTableStatus != FontSectionStatus.Invalid ||
+            !System.Linq.Enumerable.Any(truncated.Diagnostics, d => d.Code == FontDiagnosticCodes.InvalidCompressedData))
+            throw new Exception(WebContractFailureMessage);
+    }
+}
+Console.WriteLine("Packaged WOFF/WOFF2/EOT, provenance, budgets and strict zlib completion verified.");
+
+static byte[] CompressBytes(byte[] bytes, bool brotli) {
+    using(var output = new System.IO.MemoryStream()) {
+        using(System.IO.Stream encoder = brotli
+            ? new System.IO.Compression.BrotliStream(output, System.IO.Compression.CompressionLevel.Optimal, true)
+            : new System.IO.Compression.ZLibStream(output, System.IO.Compression.CompressionLevel.Optimal, true)) {
+            encoder.Write(bytes);
+        }
+        return output.ToArray();
+    }
+}
+static void Write32(byte[] bytes, int offset, uint value) {
+    System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(offset), value);
+}
+static byte[] MakeWoff(byte[] table) {
+    byte[] compressed = CompressBytes(table, false);
+    byte[] bytes = new byte[(64 + compressed.Length + 3) & ~3];
+    "wOFF"u8.CopyTo(bytes);
+    Write32(bytes, 4, 0x00010000);
+    Write32(bytes, 8, (uint)bytes.Length);
+    bytes[13] = 1;
+    Write32(bytes, 16, (uint)(28 + table.Length));
+    "name"u8.CopyTo(bytes.AsSpan(44));
+    Write32(bytes, 48, 64);
+    Write32(bytes, 52, (uint)compressed.Length);
+    Write32(bytes, 56, (uint)table.Length);
+    compressed.CopyTo(bytes, 64);
+    return bytes;
+}
+static byte[] MakeWoff2(byte[] table) {
+    byte[] compressed = CompressBytes(table, true);
+    byte[] bytes = new byte[54 + compressed.Length];
+    "wOF2"u8.CopyTo(bytes);
+    Write32(bytes, 4, 0x00010000);
+    Write32(bytes, 8, (uint)bytes.Length);
+    bytes[13] = 1;
+    Write32(bytes, 16, (uint)(28 + table.Length));
+    Write32(bytes, 20, (uint)compressed.Length);
+    bytes[48] = 63;
+    "name"u8.CopyTo(bytes.AsSpan(49));
+    bytes[53] = (byte)table.Length;
+    compressed.CopyTo(bytes, 54);
+    return bytes;
+}
+static byte[] MakeEot(byte[] sfnt) {
+    using(var output = new System.IO.MemoryStream()) {
+        using(var writer = new System.IO.BinaryWriter(output, System.Text.Encoding.Unicode, true)) {
+            writer.Write(new byte[80]);
+            for(int index = 0; index < 5; index++) {
+                writer.Write((ushort)0);
+                writer.Write((ushort)0);
+            }
+            writer.Write(0x50475342u);
+            writer.Write(1252u);
+            writer.Write((ushort)0);
+            writer.Write((ushort)0);
+            writer.Write(0u);
+            writer.Write((uint)sfnt.Length);
+            writer.Write(sfnt);
+            writer.Write(sfnt);
+        }
+        byte[] bytes = output.ToArray();
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, (uint)bytes.Length);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), (uint)sfnt.Length);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), 0x00020002);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), 0x20);
+        bytes[32] = 2;
+        bytes[34] = 0x4c;
+        bytes[35] = 0x50;
+        return bytes;
+    }
+}
+sealed class ChunkedInput : System.IO.MemoryStream {
+    readonly int chunkSize;
+    internal ChunkedInput(byte[] input, int chunkSize) : base(input, false) {
+        this.chunkSize = chunkSize;
+    }
+    public override int Read(byte[] buffer, int offset, int count) {
+        return base.Read(buffer, offset, Math.Min(count, chunkSize));
+    }
+    public override int Read(Span<byte> buffer) {
+        return base.Read(buffer.Slice(0, Math.Min(buffer.Length, chunkSize)));
+    }
+}
+
 '@)
     Invoke-DotNet @('restore', $project, '--configfile', $config)
     Invoke-DotNet @('build', $project, '-c', 'Release', '--no-restore')
-    Invoke-DotNet @('run', '--project', $project, '-c', 'Release', '--no-build', '--no-restore', '--', $Version)
+    foreach($strictValidation in @('false', 'true')) {
+        Invoke-DotNet @('run', '--project', $project, '-c', 'Release', '--no-build', '--no-restore', '--', $Version, $strictValidation)
+    }
     $toolPath = Join-Path $run 'tool'
     Invoke-DotNet @('tool', 'install', 'Font.Metadata.Tool', '--version', $version,
         '--tool-path', $toolPath, '--configfile', $config)

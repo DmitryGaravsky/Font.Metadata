@@ -5,22 +5,29 @@ using static Fonts.Metadata.Internal.NameTableDefinitions;
 namespace Fonts.Metadata {
     /// <summary>Immutable metadata from one font container. No input buffer or stream is retained.</summary>
     public sealed class FontMetadata {
-        internal FontMetadata(FontFormat format, IReadOnlyList<Face>? faces = null) {
+        internal FontMetadata(FontFormat format, IReadOnlyList<Face>? faces = null,
+            EotHeader? eot = null, FontSectionStatus? eotStatus = null) {
             Format = format;
+            Eot = eot;
+            EotHeaderStatus = eotStatus ?? (format == FontFormat.Eot ? FontSectionStatus.NotRead : FontSectionStatus.Missing);
             Faces = faces ?? ReadOnlyCollection<Face>.Empty;
         }
         /// <summary>Source container format, independently of its SFNT flavor.</summary>
         public FontFormat Format { get; }
         /// <summary>Faces in source order, including bounded placeholders for unreadable face directories.</summary>
         public IReadOnlyList<Face> Faces { get; }
-        /// <summary>Reserved for EOT header metadata. Always null in this SFNT/TTC implementation.</summary>
-        public EotHeader? Eot { get { return null; } }
+        /// <summary>Verified EOT header facts, or null when absent or unavailable.</summary>
+        public EotHeader? Eot { get; }
+        /// <summary>Completeness of the EOT header; Missing for other container formats.</summary>
+        public FontSectionStatus EotHeaderStatus { get; }
         /// <summary>Metadata of one face; table completeness is reported independently.</summary>
         public sealed class Face {
             internal Face(int index, uint? flavor, FontSectionStatus nameStatus = FontSectionStatus.NotRead,
                 FontSectionStatus os2Status = FontSectionStatus.NotRead, IReadOnlyList<NameRecord>? records = null,
-                string? vendorId = null, ushort? permissions = null, IReadOnlyDictionary<int, string>? preferred = null) {
+                string? vendorId = null, ushort? permissions = null, IReadOnlyDictionary<int, string>? preferred = null,
+                FontFaceSource source = FontFaceSource.Container) {
                 Index = index;
+                Source = source;
                 SfntFlavor = flavor;
                 NameTableStatus = nameStatus;
                 Os2TableStatus = os2Status;
@@ -45,6 +52,8 @@ namespace Fonts.Metadata {
             }
             /// <summary>Original zero-based face index; recovery never renumbers faces.</summary>
             public int Index { get; }
+            /// <summary>Container component supplying this face; EOT header facts remain separate.</summary>
+            public FontFaceSource Source { get; }
             /// <summary>Original SFNT flavor, when the header was readable.</summary>
             public uint? SfntFlavor { get; }
             /// <summary>Completeness of the name table.</summary>
@@ -112,10 +121,42 @@ namespace Fonts.Metadata {
             /// <summary>Unmodified decoded string, including whitespace, NULs and empty values.</summary>
             public string Value { get; }
         }
-        /// <summary>Reserved model name for a future EOT reader; this version does not create EOT headers.</summary>
+        /// <summary>Verified EOT header facts, independent of all embedded faces.</summary>
         public sealed class EotHeader {
-            internal EotHeader() {
+            internal EotHeader(uint? formatVersion, uint? flags, ushort? permissions,
+                string? family, string? style, string? fullName, string? version,
+                uint? eudcCodePage, uint? eudcFlags, uint? eudcSize) {
+                FormatVersion = formatVersion;
+                Flags = flags;
+                EmbeddingPermissions = permissions;
+                FamilyName = family;
+                StyleName = style;
+                FullName = fullName;
+                Version = version;
+                EudcCodePage = eudcCodePage;
+                EudcFlags = eudcFlags;
+                EudcFontDataSize = eudcSize;
             }
+            /// <summary>Raw EOT container version, when verified.</summary>
+            public uint? FormatVersion { get; }
+            /// <summary>Raw main-payload processing flags; not a licensing conclusion.</summary>
+            public uint? Flags { get; }
+            /// <summary>Raw header fsType; independent of the embedded OS/2 value.</summary>
+            public ushort? EmbeddingPermissions { get; }
+            /// <summary>Unmodified UTF-16LE family name; null means unavailable, not an empty string.</summary>
+            public string? FamilyName { get; }
+            /// <summary>Unmodified UTF-16LE style name.</summary>
+            public string? StyleName { get; }
+            /// <summary>Unmodified UTF-16LE full name.</summary>
+            public string? FullName { get; }
+            /// <summary>Unmodified textual version name, distinct from FormatVersion.</summary>
+            public string? Version { get; }
+            /// <summary>Raw version-specific EUDC code page, or null if absent or unreadable.</summary>
+            public uint? EudcCodePage { get; }
+            /// <summary>Raw independent EUDC processing flags, including a verified zero.</summary>
+            public uint? EudcFlags { get; }
+            /// <summary>Declared EUDC payload size, including zero; null if absent or unreadable.</summary>
+            public uint? EudcFontDataSize { get; }
         }
     }
 }

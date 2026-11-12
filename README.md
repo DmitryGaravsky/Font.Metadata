@@ -2,7 +2,7 @@
 
 Font.Metadata is a .NET 10 library for reading font metadata, with a companion command-line project. It is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/).
 
-The current development version reads **SFNT (TrueType/OpenType) and TTC/OTC collections**. It exposes names, vendor identifiers and raw embedding flags, preserves partial results, and reports table status and structured diagnostics.
+The current development version reads **SFNT (TrueType/OpenType), TTC/OTC, WOFF, WOFF2 and EOT**. It exposes names, vendor identifiers and raw embedding flags, preserves partial results, and reports table status and structured diagnostics.
 
 ## Read a font
 
@@ -43,6 +43,8 @@ These are separate examples. See [API](docs/api.md) for input overloads, excepti
 ## Available functionality
 
 - SFNT flavors: TrueType 1.0, `OTTO`, `true` and `typ1`; TTC versions 1 and 2.
+- WOFF raw/zlib tables and WOFF2 single fonts/collections with streamed Brotli decoding.
+- EOT versions 1, 2.1 and 2.2: separate header facts, raw/XOR/MTX payloads, LZCOMP/RLE and independent EUDC.
 - `name` table formats 0/1: source records, language tags, Unicode, MacRoman and supported legacy Windows encodings.
 - Preferred identity, attribution, description, URL and license strings.
 - `OS/2` metadata: vendor identifier and raw `fsType` embedding flags.
@@ -50,9 +52,9 @@ These are separate examples. See [API](docs/api.md) for input overloads, excepti
 - File, stream, byte array, span and memory inputs; immutable results.
 - Separate license analysis of every available name ID 13/14 record, with stable rules and source evidence.
 
-Reading starts at the supplied input origin. The library does not search for embedded fonts. “Complete” describes supported metadata extraction, not validation of outlines, checksums or licensing. See [formats and boundaries](docs/formats.md).
+Reading starts at the supplied input origin. The library does not search for embedded fonts. “Complete” describes supported metadata extraction, not validation of outlines, SFNT table checksums or licensing. See [formats and boundaries](docs/formats.md).
 
-WOFF, WOFF2 and recognized EOT headers currently return `Unsupported`. The `Font.Metadata.Tool` package currently provides only `--help` and `--version`; CLI inspection and plain/JSON reports are not implemented yet.
+The `Font.Metadata.Tool` package currently provides only `--help` and `--version`; CLI inspection and plain/JSON reports are not implemented yet.
 
 ## Analyze license evidence
 

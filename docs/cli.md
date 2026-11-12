@@ -11,7 +11,7 @@ Package: Font.Metadata.Tool. Command: font-metadata. Runtime: .NET 10.
 | inspect followed by any arguments | Empty | Inspection is not implemented | 1 |
 | Other arguments | Empty | Unknown arguments | 2 |
 
-The library supports SFNT/TTC reading through its [API](api.md), but the tool does not read font files yet. Plain and JSON font reports are unavailable. A failed inspect invocation does not emit an empty success report or classify the input as malformed.
+The library supports SFNT/TTC, WOFF, WOFF2 and EOT reading through its [API](api.md), but the tool does not read font files yet. Plain and JSON font reports are unavailable. A failed inspect invocation does not emit an empty success report or classify the input as malformed.
 
 ## Running from source
 
