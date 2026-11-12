@@ -196,4 +196,4 @@ if(inspection.Metadata is { } font) {
 
 `FontMetadataReader.IsFormatSupported(format)` reports implemented container readers: `Sfnt`, `Collection`, `Woff`, `Woff2` and `Eot`. `HasFontExtension(path)` recognizes .ttf, .otf, .ttc, .otc, .woff, .woff2 and .eot case-insensitively. An extension is not evidence of valid or supported content.
 
-There is no embedded-font search API or CLI inspection yet. License strings and embedding flags are source facts; they do not establish permission to use or redistribute a font.
+There is no embedded-font search API. The [CLI](cli.md) exposes inspection and optional license analysis. License strings and embedding flags are source facts; they do not establish permission to use or redistribute a font.

@@ -5,7 +5,11 @@
     <RootNamespace>Fonts.Metadata.Tool.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Font.Metadata.Tool/Font.Metadata.Tool.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../Font.Metadata.Tool/Font.Metadata.Tool.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Font.Metadata.Tests/FontFixtures.cs" Link="Fixtures/FontFixtures.cs" />
+    <Compile Include="../Font.Metadata.Tests/WebFontFixtures.cs" Link="Fixtures/WebFontFixtures.cs" />
   </ItemGroup>
   <Target Name="CopyToolForProcessTests" AfterTargets="Build">
     <ItemGroup>

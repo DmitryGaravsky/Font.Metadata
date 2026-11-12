@@ -1,5 +1,7 @@
 # Font.Metadata
 
+[![Build and test (main)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml?query=branch%3Amain)
+
 Font.Metadata is a .NET 10 library for reading font metadata, with a companion command-line project. It is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/).
 
 The current development version reads **SFNT (TrueType/OpenType), TTC/OTC, WOFF, WOFF2 and EOT**. It exposes names, vendor identifiers and raw embedding flags, preserves partial results, and reports table status and structured diagnostics.
@@ -54,7 +56,12 @@ These are separate examples. See [API](docs/api.md) for input overloads, excepti
 
 Reading starts at the supplied input origin. The library does not search for embedded fonts. “Complete” describes supported metadata extraction, not validation of outlines, SFNT table checksums or licensing. See [formats and boundaries](docs/formats.md).
 
-The `Font.Metadata.Tool` package currently provides only `--help` and `--version`; CLI inspection and plain/JSON reports are not implemented yet.
+The `Font.Metadata.Tool` package inspects files or binary stdin with plain/JSON reports, partial metadata and optional license evidence. See [CLI commands and JSON Schema](docs/cli.md).
+
+```shell
+font-metadata inspect Example.ttf --format json --analyze-licenses
+font-metadata inspect One.ttf Two.woff2 --include-name-records
+```
 
 ## Analyze license evidence
 
@@ -81,7 +88,7 @@ The analyzer performs no I/O and preserves independent and conflicting indicatio
 | Library | .NET 10 |
 | CLI | .NET 10 |
 | Build | .NET 10 SDK and PowerShell 7 |
-| CI test matrix | .NET 10 on Windows, Linux and macOS |
+| CI test matrix | .NET 10 on Windows and Linux for PRs; also macOS on main, manual runs and releases |
 
 The library and tool require .NET 10. The build uses a stable .NET 10 SDK selected by global.json.
 

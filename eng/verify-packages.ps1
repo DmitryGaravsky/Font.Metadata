@@ -307,13 +307,14 @@ sealed class ChunkedInput : System.IO.MemoryStream {
     $toolName = if($IsWindows) { 'font-metadata.exe' } else { 'font-metadata' }
     $executable = Join-Path $toolPath $toolName
     $help = & $executable --help
-    if($LASTEXITCODE -ne 0 -or ($help -join "\n") -notmatch 'not implemented') {
+    if($LASTEXITCODE -ne 0 -or ($help -join "\n") -notmatch 'inspect <path>') {
         throw 'Installed tool did not report its current capabilities.'
     }
     $actualVersion = & $executable --version
     if($LASTEXITCODE -ne 0 -or ($actualVersion.Trim() -split '\+')[0] -ne $version) {
         throw ('Installed tool version does not match {0}.' -f $version)
     }
+    & (Join-Path $PSScriptRoot 'test-cli-verification.ps1') -Executable $executable -WorkDirectory (Join-Path $run 'cli')
     Write-Host 'PackageReference consumer and installed dotnet tool checks passed.'
 } finally {
     $env:NUGET_PACKAGES = $originalPackages

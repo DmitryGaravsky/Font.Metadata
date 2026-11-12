@@ -7,9 +7,10 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>font-metadata</ToolCommandName>
     <PackageId>Font.Metadata.Tool</PackageId>
-    <Description>Companion CLI for Font.Metadata. Currently provides help and version information; font inspection is not implemented yet.</Description>
+    <Description>Inspect font metadata from files or binary stdin with plain/JSON reports, diagnostics and optional license evidence.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Font.Metadata.Tool.Tests" />
     <ProjectReference Include="../Font.Metadata/Font.Metadata.csproj" />
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />

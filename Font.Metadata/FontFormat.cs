@@ -7,11 +7,11 @@ namespace Fonts.Metadata {
         Sfnt,
         /// <summary>A TTC or OTC collection.</summary>
         Collection,
-        /// <summary>WOFF; recognized but not yet supported.</summary>
+        /// <summary>WOFF metadata container.</summary>
         Woff,
-        /// <summary>WOFF2; recognized but not yet supported.</summary>
+        /// <summary>WOFF2 metadata container.</summary>
         Woff2,
-        /// <summary>Embedded OpenType; recognized but not yet supported.</summary>
+        /// <summary>Embedded OpenType metadata container.</summary>
         Eot,
     }
 }

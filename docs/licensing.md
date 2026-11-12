@@ -110,3 +110,7 @@ The current result model represents individual indications, not expression struc
 - File references such as `SEE LICENSE IN LICENSE.txt`.
 
 The entire unsupported declaration remains in source metadata. Independent declarations and records are still analyzed. Hints are never combined into AND/OR, and no preferred branch is selected. General license-text matching, arbitrary languages, expression output and licensing policy are outside this API's current scope.
+
+## CLI evidence
+
+Use `font-metadata inspect Example.ttf --analyze-licenses` to include per-face indications with complete source records. Raw preferred license strings remain available without that option; `--include-name-records` independently includes every decoded record. Hints never affect exit codes. See [CLI reports](cli.md#license-evidence).

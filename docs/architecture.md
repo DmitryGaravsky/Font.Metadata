@@ -1,6 +1,6 @@
 # Architecture
 
-The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC, WOFF, WOFF2 and EOT reading. The CLI currently exposes help/version; reporting remains a future component. License evidence analysis is an independent operation on decoded records.
+The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC, WOFF, WOFF2 and EOT reading. The CLI exposes inspect, plain/JSON reports, binary stdin and optional license evidence. License evidence analysis is an independent operation on decoded records.
 
 ## Repository layout
 
@@ -53,7 +53,7 @@ Font.Metadata/
 │       ├── FontDiagnosticCodes.cs      stable diagnostic identifiers
 │       ├── FontDiagnosticCategory.cs   diagnostic classification
 │       └── FontDiagnosticSeverity.cs   diagnostic severity
-├── Font.Metadata.Tool/              help, version and unsupported-command handling
+├── Font.Metadata.Tool/              arguments, input orchestration and plain/JSON report writers
 ├── Font.Metadata.Tests/             public API, synthetic fonts and recovery tests
 ├── Font.Metadata.Tool.Tests/        child-process CLI tests
 ├── eng/                            local verification, packaging and release scripts
@@ -169,3 +169,13 @@ Known expressions, exceptions and unknown variants fail whole-declaration matchi
 All four projects target net10.0. Repository settings, sources and dependencies are self-contained. No external consumer projects, source links or private feeds are required.
 
 Complete describes supported metadata extraction, not comprehensive font validity. See [Formats](formats.md) for exactly what is checked and [Testing](testing.md) for verification.
+
+## CLI flow
+
+```text
+Validated arguments → one input → Inspect → optional Analyze per face
+                                       → explicit JSON projection / plain writer
+                                       → aggregate exit status
+```
+
+CommandOptions owns grammar; Command owns input lifetimes, cancellation and failure boundaries. StandardOutput uses a borrowed OS handle for redirected output so broken pipes remain observable as I/O failures; it never closes the process-owned handle. ReportValues defines the wire vocabulary, while JsonReportWriter and PlainReportWriter present results without accumulating the whole batch. Library models and parsers have no CLI dependency. The report contract is versioned separately in cli.schema.json.

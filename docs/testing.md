@@ -25,7 +25,7 @@ The suite exercises the public SFNT/TTC/WOFF/WOFF2/EOT reading API, partial reco
 | License rules | Every supported ID/name/family and URL; exact context, negations, quotes, versions, compound expressions and URI spoofing |
 | License contract | Original-record identity, duplicates, conflicts, all name statuses, immutable results, cultures and concurrent calls |
 | License robustness | Deep/long rejected inputs without recursion; shared strings with a managed-allocation ceiling; shared TTC source records |
-| CLI | Help aliases, version, unsupported inspection and invalid arguments through a child process |
+| CLI | Real-process inspection, stdin, plain/JSON, recovery, evidence and argument errors; deterministic cancellation/output failures |
 | Library package | net10.0 assembly, XML documentation and README; no other framework assets or CLI payload |
 | Package licensing | MIT declaration, author/copyright, project/repository metadata and bundled LICENSE |
 | Isolated consumer | Compile and execute real strict/partial reads and complete/partial license analysis against the generated library nupkg, including source identity, immutable hints, web formats, EOT fields/provenance, logical diagnostic offsets and new limits; zlib host strict-validation settings run in separate processes |
@@ -60,7 +60,7 @@ dotnet test Font.Metadata.Tool.Tests/Font.Metadata.Tool.Tests.csproj -c Release
 dotnet format whitespace Font.Metadata.slnx --verify-no-changes --no-restore
 ```
 
-Use --no-build only after a current successful build, and --no-restore only with current assets. Both test projects target net10.0. The configured CI matrix runs verification on Windows, Linux and macOS; a local run only verifies its own host.
+Use --no-build only after a current successful build, and --no-restore only with current assets. Both test projects target net10.0. The configured CI matrix runs verification on Windows and Linux for pull requests, and also on macOS for pushes to main, manual runs and releases; a local run only verifies its own host.
 
 ## Release preparation without publication
 
@@ -68,14 +68,24 @@ Use --no-build only after a current successful build, and --no-restore only with
 pwsh -File eng/prepare-release.ps1 -Tag v1.2.3-preview.1
 ```
 
-Preparation includes the full verification, builds a portable ZIP from the checked tool package, extracts it into a fresh directory and checks help/version output and license text. It writes two nupkg files, the ZIP and SHA256SUMS under `artifacts/release/1.2.3-preview.1/`. It creates no Git tag, requires no publication credentials and never publishes.
+Preparation includes the full verification, builds a portable ZIP from the checked tool package, extracts it into a fresh directory and checks help/version, real plain/JSON inspection, schema, recovery and license text. It writes two nupkg files, the ZIP and SHA256SUMS under `artifacts/release/1.2.3-preview.1/`. It creates no Git tag, requires no publication credentials and never publishes.
 
 The GitHub publication script is tested with a local command substitute; these checks do not contact GitHub. Actual OIDC authentication, NuGet push and hosted release creation are verified only during an explicitly initiated release.
 
 ## Extending coverage
 
-Parser changes require independent valid/malformed fixtures, bounds, resource-limit and cancellation checks. Keep existing recovery contracts while adding container support. Embedded search and CLI reports are not implemented or covered as successful operations yet.
+Parser changes require independent valid/malformed fixtures, bounds, resource-limit and cancellation checks. Keep existing recovery contracts while adding container support. CLI reports are covered through real processes and internal orchestration tests. Embedded search remains deferred.
 
 License matching tests use independent expected strings and synthetic name tables, rather than enumerating production dictionaries. Contract tests exercise reader-produced complete/partial faces and all section states; internal construction is reserved for isolated status and stress cases that cannot be represented within name wire limits. Boundary regressions cover continued titles, quoted semicolons, standalone SPDX annotation lines and their rejected continuations. Long-input tests do not use fragile timing assertions. Shared-text allocation tests warm the implementation before measuring with a generous ceiling.
 
 Changes to [license rules](licensing.md) require positive and negative examples, exact RuleId/identifier/kind assertions and original SourceRecord identity. Do not convert arbitrary prose, newer versions or compound expressions into positive cases without a deliberate contract change. Package smoke tests compile every new public type and verify actual evidence through the generated nupkg.
+
+## CLI contract checks
+
+Process tests cover all formats, argument validation before I/O, binary stdin, original face/record indexes, EOT recovery, optional source-linked license evidence, invariant JSON and terminal-safe text. Internal host tests deterministically cancel waiting asynchronous pipe reads and large report writes, separate input/output failures, and exercise incremental flushing. A fixed plain snapshot protects readable layout. Review regressions close a real child-process output pipe, cancel help/version output, check short reads and oversized stdin producers, and verify argument/cancellation/I/O precedence. The process timeout covers input delivery as well as output collection and process exit.
+
+The shared eng/verify-cli.ps1 smoke check runs against both installed and extracted portable tools through eng/test-cli-verification.ps1. It validates every option combination and complete/partial/I/O reports against docs/cli.schema.json, validates documented examples, and rejects deliberately invalid schema examples. Validation is local and requires no downloaded schema or font.
+
+Console Ctrl+C signal delivery is host-dependent and is not simulated by killing a child process. Local cancellation tests use a real asynchronous named pipe and the same command token path. They do not establish immediate cancellation of all native stdin/file/output operations. CI verifies cross-platform execution, with macOS covered on main, manual runs and releases; a local Windows run does not prove Linux/macOS behavior.
+
+The verification-script regression launches a separate PowerShell process with the GitHub Actions preamble, dot-sourced `-Command` invocation and `exit $LASTEXITCODE` footer. A successful smoke test must return zero and resume its caller despite expected CLI codes 1 and 3. An unexpected CLI failure and an invalid JSON example in an isolated fixture must still fail the shell. The smoke script explicitly exits zero only after all assertions and cleanup; exceptions are not suppressed. Per-case stdout/stderr remain in the package/portable smoke artifacts.
