@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "options": {
+    "includeNameRecords": true,
+    "analyzeLicenses": true,
+    "maxInputBytes": 134217728
+  },
+  "results": [
+    {
+      "source": {
+        "kind": "file",
+        "path": "Example.ttf"
+      },
+      "status": "complete",
+      "metadata": {
+        "format": "sfnt",
+        "eotHeaderStatus": "missing",
+        "eot": null,
+        "faces": [
+          {
+            "index": 0,
+            "source": "container",
+            "sfntFlavor": 65536,
+            "nameTableStatus": "complete",
+            "os2TableStatus": "complete",
+            "vendorId": "TEST",
+            "embeddingPermissions": 0,
+            "familyName": "Example",
+            "subfamilyName": null,
+            "fullName": null,
+            "postScriptName": null,
+            "version": null,
+            "copyright": null,
+            "trademark": null,
+            "manufacturer": null,
+            "designer": null,
+            "description": null,
+            "vendorUrl": null,
+            "designerUrl": null,
+            "licenseDescription": "MIT",
+            "licenseUrl": null,
+            "nameRecords": [
+              {
+                "index": 0,
+                "nameId": 1,
+                "platformId": 3,
+                "encodingId": 1,
+                "languageId": 1033,
+                "languageTag": null,
+                "value": "Example"
+              },
+              {
+                "index": 1,
+                "nameId": 13,
+                "platformId": 3,
+                "encodingId": 1,
+                "languageId": 1033,
+                "languageTag": null,
+                "value": "MIT"
+              }
+            ],
+            "licenseAnalysis": {
+              "isSourceComplete": true,
+              "hints": [
+                {
+                  "identifier": "MIT",
+                  "identifierKind": "spdx",
+                  "ruleId": "FLA001",
+                  "sourceRecord": {
+                    "index": 1,
+                    "nameId": 13,
+                    "platformId": 3,
+                    "encodingId": 1,
+                    "languageId": 1033,
+                    "languageTag": null,
+                    "value": "MIT"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "diagnostics": []
+    }
+  ]
+}

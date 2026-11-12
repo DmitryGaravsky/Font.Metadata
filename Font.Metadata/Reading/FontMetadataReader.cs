@@ -112,7 +112,7 @@ namespace Fonts.Metadata {
         public static bool IsFormatSupported(FontFormat format) {
             return format is FontFormat.Sfnt or FontFormat.Collection or FontFormat.Woff or FontFormat.Woff2 or FontFormat.Eot;
         }
-        /// <summary>Recognizes common font filename extensions, including containers whose readers are not yet implemented.</summary>
+        /// <summary>Recognizes common font filename extensions, without validating content.</summary>
         public static bool HasFontExtension(string path) {
             ArgumentNullException.ThrowIfNull(path);
             return Path.GetExtension(path).ToLowerInvariant() is ".ttf" or ".otf" or ".ttc" or ".otc" or ".woff" or ".woff2" or ".eot";

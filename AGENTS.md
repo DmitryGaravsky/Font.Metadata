@@ -4,7 +4,7 @@ This is the single source of rules for coding agents working in this repository.
 
 ## Scope and current implementation
 
-The library implements SFNT/TTC, WOFF, WOFF2 and EOT metadata reading with partial results, per-table statuses and diagnostics. The repository also contains CLI help/version commands, tests, packaging checks and CI. Separate license analysis of decoded name records is implemented. WOFF2 collections and EOT main/EUDC payloads use shared budgets and preserve independent metadata. Embedded search and CLI inspection are not implemented yet.
+The library implements SFNT/TTC, WOFF, WOFF2 and EOT metadata reading with partial results, per-table statuses and diagnostics. The repository also contains CLI file/stdin inspection with plain/JSON reports and optional license evidence, tests, packaging checks and CI. Separate license analysis of decoded name records is implemented. WOFF2 collections and EOT main/EUDC payloads use shared budgets and preserve independent metadata. Embedded search remains deferred.
 
 Work directly in this repository for its authorized tasks. Changes to external consumers require an explicit request. Preserve unrelated concurrent changes.
 

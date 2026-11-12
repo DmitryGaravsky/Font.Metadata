@@ -2,7 +2,7 @@
 
 [release.yml](../.github/workflows/release.yml) publishes both NuGet packages and a GitHub Release when a version tag is pushed. Pushes to `main` and pull requests run CI without publishing. There is no manual publication trigger. Local build and preparation scripts never publish.
 
-The library reads SFNT/TTC, WOFF, WOFF2 and EOT metadata and separately analyzes license evidence from decoded name records. The CLI currently provides help/version; CLI inspection is not implemented. A release workflow does not imply that a public version already exists.
+The library reads SFNT/TTC, WOFF, WOFF2 and EOT metadata and separately analyzes license evidence from decoded name records. The CLI provides file/stdin inspection with plain/JSON reports and optional license evidence. A release workflow does not imply that a public version already exists.
 
 ## Version policy
 

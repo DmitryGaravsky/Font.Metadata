@@ -1,0 +1,786 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Font.Metadata.Tool inspect report, version 1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "includeNameRecords": {
+          "type": "boolean"
+        },
+        "analyzeLicenses": {
+          "type": "boolean"
+        },
+        "maxInputBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483590
+        }
+      },
+      "required": [
+        "includeNameRecords",
+        "analyzeLicenses",
+        "maxInputBytes"
+      ]
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "options",
+    "results"
+  ],
+  "$defs": {
+    "section": {
+      "type": "string",
+      "enum": [
+        "notRead",
+        "missing",
+        "complete",
+        "partial",
+        "invalid",
+        "unsupported"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "file",
+            "stdin"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "path"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "file"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "path": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "nameId": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "platformId": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "encodingId": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "languageId": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "languageTag": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "nameId",
+        "platformId",
+        "encodingId",
+        "languageId",
+        "languageTag",
+        "value"
+      ]
+    },
+    "hint": {
+      "type": "object",
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "identifierKind": {
+          "type": "string",
+          "enum": [
+            "spdx",
+            "family"
+          ]
+        },
+        "ruleId": {
+          "type": "string"
+        },
+        "sourceRecord": {
+          "$ref": "#/$defs/record"
+        }
+      },
+      "required": [
+        "identifier",
+        "identifierKind",
+        "ruleId",
+        "sourceRecord"
+      ]
+    },
+    "analysis": {
+      "type": "object",
+      "properties": {
+        "isSourceComplete": {
+          "type": "boolean"
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hint"
+          }
+        }
+      },
+      "required": [
+        "isSourceComplete",
+        "hints"
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "error"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "malformedData",
+            "limitExceeded",
+            "unsupportedFeature",
+            "unsupportedEncoding",
+            "nonConformantData",
+            "io"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "faceIndex": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "tableTag": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "byteOffset": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "tableByteOffset": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "category",
+        "message",
+        "faceIndex",
+        "tableTag",
+        "byteOffset",
+        "tableByteOffset"
+      ]
+    },
+    "face": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "container",
+            "eotMain",
+            "eotEudc"
+          ]
+        },
+        "sfntFlavor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "nameTableStatus": {
+          "$ref": "#/$defs/section"
+        },
+        "os2TableStatus": {
+          "$ref": "#/$defs/section"
+        },
+        "vendorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "embeddingPermissions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "familyName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subfamilyName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fullName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "postScriptName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "copyright": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trademark": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manufacturer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "designer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendorUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "designerUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "licenseDescription": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "licenseUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nameRecords": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record"
+          }
+        },
+        "licenseAnalysis": {
+          "$ref": "#/$defs/analysis"
+        }
+      },
+      "required": [
+        "index",
+        "source",
+        "sfntFlavor",
+        "nameTableStatus",
+        "os2TableStatus",
+        "vendorId",
+        "embeddingPermissions",
+        "familyName",
+        "subfamilyName",
+        "fullName",
+        "postScriptName",
+        "version",
+        "copyright",
+        "trademark",
+        "manufacturer",
+        "designer",
+        "description",
+        "vendorUrl",
+        "designerUrl",
+        "licenseDescription",
+        "licenseUrl"
+      ]
+    },
+    "eot": {
+      "type": "object",
+      "properties": {
+        "formatVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "flags": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "embeddingPermissions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "familyName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "styleName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fullName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "eudcCodePage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "eudcFlags": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "eudcFontDataSize": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "formatVersion",
+        "flags",
+        "embeddingPermissions",
+        "familyName",
+        "styleName",
+        "fullName",
+        "version",
+        "eudcCodePage",
+        "eudcFlags",
+        "eudcFontDataSize"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "sfnt",
+            "collection",
+            "woff",
+            "woff2",
+            "eot"
+          ]
+        },
+        "eotHeaderStatus": {
+          "$ref": "#/$defs/section"
+        },
+        "eot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/eot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/face"
+          }
+        }
+      },
+      "required": [
+        "format",
+        "eotHeaderStatus",
+        "eot",
+        "faces"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "failed",
+            "unsupported",
+            "notRecognized",
+            "ioError"
+          ]
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/metadata"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "required": [
+        "source",
+        "status",
+        "metadata",
+        "diagnostics"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "ioError",
+                  "notRecognized"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metadata": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "ioError"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "diagnostics": {
+                "minItems": 1,
+                "contains": {
+                  "properties": {
+                    "code": {
+                      "const": "CLI_IO_ERROR"
+                    },
+                    "severity": {
+                      "const": "error"
+                    },
+                    "category": {
+                      "const": "io"
+                    },
+                    "faceIndex": {
+                      "type": "null"
+                    },
+                    "tableTag": {
+                      "type": "null"
+                    },
+                    "byteOffset": {
+                      "type": "null"
+                    },
+                    "tableByteOffset": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "severity",
+                    "category",
+                    "faceIndex",
+                    "tableTag",
+                    "byteOffset",
+                    "tableByteOffset"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "options": {
+            "properties": {
+              "includeNameRecords": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "required": [
+                          "nameRecords"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "not": {
+                          "required": [
+                            "nameRecords"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "options": {
+            "properties": {
+              "analyzeLicenses": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "required": [
+                          "licenseAnalysis"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "not": {
+                          "required": [
+                            "licenseAnalysis"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

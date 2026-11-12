@@ -51,6 +51,7 @@ $help = & dotnet $entryPoint --help
 if($LASTEXITCODE -ne 0 -or ($help -join "`n") -notmatch 'Usage: font-metadata') { throw 'Portable CLI help failed.' }
 $actual = & dotnet $entryPoint --version
 if($LASTEXITCODE -ne 0 -or ($actual.Trim() -split '\+')[0] -cne $version) { throw 'Portable CLI version mismatch.' }
+& (Join-Path $PSScriptRoot 'verify-cli.ps1') -Executable 'dotnet' -Prefix @($entryPoint) -WorkDirectory (Join-Path $run 'cli')
 $output = Join-Path $root "artifacts/release/$version"
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $names = @("Font.Metadata.$version.nupkg", "Font.Metadata.Tool.$version.nupkg", $zipName)

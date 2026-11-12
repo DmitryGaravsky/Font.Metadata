@@ -54,7 +54,12 @@ These are separate examples. See [API](docs/api.md) for input overloads, excepti
 
 Reading starts at the supplied input origin. The library does not search for embedded fonts. “Complete” describes supported metadata extraction, not validation of outlines, SFNT table checksums or licensing. See [formats and boundaries](docs/formats.md).
 
-The `Font.Metadata.Tool` package currently provides only `--help` and `--version`; CLI inspection and plain/JSON reports are not implemented yet.
+The `Font.Metadata.Tool` package inspects files or binary stdin with plain/JSON reports, partial metadata and optional license evidence. See [CLI commands and JSON Schema](docs/cli.md).
+
+```shell
+font-metadata inspect Example.ttf --format json --analyze-licenses
+font-metadata inspect One.ttf Two.woff2 --include-name-records
+```
 
 ## Analyze license evidence
 
