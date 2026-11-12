@@ -11,6 +11,7 @@ FontMetadataReader                 static reading operations
 
 FontInspectionResult
 ├── Status                         FontReadStatus
+├── Faces                          IReadOnlyList<FontMetadata.Face> (never null)
 ├── Metadata?                      FontMetadata
 │   ├── Format                     FontFormat
 │   ├── Faces                      IReadOnlyList<FontMetadata.Face>
@@ -65,15 +66,13 @@ using Fonts.Metadata;
 FontInspectionResult result = FontMetadataReader.InspectFile("example.ttc");
 Console.WriteLine($"Read status: {result.Status}");
 
-if(result.Metadata is { } font) {
-    foreach(FontMetadata.Face face in font.Faces) {
-        Console.WriteLine($"Face {face.Index}: name={face.NameTableStatus}, OS/2={face.Os2TableStatus}");
-        foreach(FontMetadata.NameRecord record in face.NameRecords) {
-            Console.WriteLine($"Record {record.Index}, name ID {record.NameId}: {record.Value}");
-        }
-        if(face.EmbeddingPermissions is ushort flags) {
-            Console.WriteLine($"Raw embedding flags: 0x{flags:X4}");
-        }
+foreach(FontMetadata.Face face in result.Faces) {
+    Console.WriteLine($"Face {face.Index}: name={face.NameTableStatus}, OS/2={face.Os2TableStatus}");
+    foreach(FontMetadata.NameRecord record in face.NameRecords) {
+        Console.WriteLine($"Record {record.Index}, name ID {record.NameId}: {record.Value}");
+    }
+    if(face.EmbeddingPermissions is ushort flags) {
+        Console.WriteLine($"Raw embedding flags: 0x{flags:X4}");
     }
 }
 foreach(FontDiagnostic diagnostic in result.Diagnostics) {
@@ -81,6 +80,10 @@ foreach(FontDiagnostic diagnostic in result.Diagnostics) {
     Console.WriteLine($"Face={diagnostic.FaceIndex}, table={diagnostic.TableTag}, offset={diagnostic.ByteOffset}, tableOffset={diagnostic.TableByteOffset}");
 }
 ```
+
+`FontInspectionResult.Faces` is a non-null, read-only view of `Metadata.Faces`, or an empty read-only collection when `Metadata` is null. It preserves the original face objects, source order, indexes and unreadable-face placeholders; it does not filter to complete faces. No metadata is fabricated and `Metadata` remains nullable. Container facts such as `Format` and the EOT header still require checking `Metadata`.
+
+An empty `Faces` collection does not establish success or the absence of container metadata. A recognized container can retain metadata without enumerable faces. Use `Status` for overall completeness and each face's section statuses for its available data. `Metadata is { } metadata` checks whether container metadata is present; it does not establish successful reading. Diagnostics explain the outcome, but checking for error-severity entries is not a substitute for `Status`: `NotRecognized` can have no diagnostics, and a diagnostic limit can replace errors with a truncation warning.
 
 A broken `name` table does not discard readable `OS/2` fields. A broken name record does not discard subsequent valid records. A broken TTC face does not discard other readable faces. Faces whose directories cannot be read remain as bounded placeholders with their original `Index`; a face limit omits indexes beyond the inspected prefix. Unknown container versions or truncated collection offset arrays can prevent face enumeration entirely.
 
@@ -175,13 +178,11 @@ using System;
 using Fonts.Metadata;
 
 FontInspectionResult inspection = FontMetadataReader.InspectFile("example.ttf");
-if(inspection.Metadata is { } font) {
-    foreach(FontMetadata.Face face in font.Faces) {
-        FontLicenseAnalysis analysis = FontLicenseAnalyzer.Analyze(face);
-        Console.WriteLine($"Source complete: {analysis.IsSourceComplete}");
-        foreach(FontLicenseHint hint in analysis.Hints) {
-            Console.WriteLine($"{hint.IdentifierKind} {hint.Identifier}: {hint.RuleId}, record {hint.SourceRecord.Index}");
-        }
+foreach(FontMetadata.Face face in inspection.Faces) {
+    FontLicenseAnalysis analysis = FontLicenseAnalyzer.Analyze(face);
+    Console.WriteLine($"Source complete: {analysis.IsSourceComplete}");
+    foreach(FontLicenseHint hint in analysis.Hints) {
+        Console.WriteLine($"{hint.IdentifierKind} {hint.Identifier}: {hint.RuleId}, record {hint.SourceRecord.Index}");
     }
 }
 ```

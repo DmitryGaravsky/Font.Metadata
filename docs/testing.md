@@ -2,6 +2,26 @@
 
 The suite exercises the public SFNT/TTC/WOFF/WOFF2/EOT reading API, partial recovery, resource limits, license evidence, packaging and current CLI behavior.
 
+## Verification layers
+
+| Layer | Purpose | Evidence and scope |
+| --- | --- | --- |
+| Repository tests | Check public contracts, parser recovery, limits and CLI behavior with controlled fixtures | Test results apply to the tested revision and host; the CI matrix determines hosted platform coverage |
+| Package and portable checks | Exercise actual nupkg consumers, the installed tool and the extracted portable CLI | Verify packaging and documented behavior without assuming a ProjectReference build represents the distributed artifact |
+| Independent package and corpus validation | Evaluate real-world metadata, evidence and reproducible differences through the public API of an identified package | Initial bounded corpus validation completed; broader coverage remains in progress, separately from repository CI |
+
+A successful repository pipeline does not establish completion of the independent validation campaign. Likewise, an observed baseline records a package's behavior; it does not turn that behavior into a correctness expectation.
+
+## Independent validation
+
+Independent validation was expanded on 2026-11-13 on Windows with .NET SDK 10.0.402. The evaluated Font.Metadata 0.1.0-dev package has SHA-256 `7C5079568C533AEB1F5F0392ADFD0A0982BEC197DBD4E2CEA938D9E748D7F825`. All 135 Inspect/Read/Analyze checks passed against reviewed expectations for 45 samples, including CJK, variable TrueType/CFF2, COLRv1/SVG/sbix, shared collections and partial-recovery inputs. No product defect was confirmed on this corpus; initial expectation errors were corrected after contract review with the original evidence retained.
+
+The separate harness preserves source records and evidence, performs field-level package comparisons, and supports replay from saved inputs and run manifests. Its 65 passing tests validate the harness itself. FontTools 4.68.0 comparisons produced 27 agreements and 18 inconclusive cases, with no differences in comparable metadata; all five container-equivalence checks passed. OTS 9.2.0 results remain separate: rejection of a metadata-only fixture is not automatically a reader defect. Detailed observations and reproducibility artifacts remain in the separate research workspace.
+
+Completed validation reports should identify the package version and SHA-256, corpus revision and sample provenance, adapter/tool versions, options and limits, environment, and unresolved findings. Reports should distinguish reviewed expectations, observations from independent tools and baseline observations from Font.Metadata. Findings need reproducible inputs or recipes; missing required evidence must not be reported as a successful check.
+
+This is an initial regression baseline, not representative coverage of real-world fonts. Positive FLA002/FLA003 cases are now covered, but broad license-recognition accuracy, hostile-input resilience and parsing performance remain unestablished. Broader validation and review of the actual release candidate remain necessary. See [Processing untrusted fonts](security.md) for existing protections and [Preview readiness](release.md#preview-readiness) for the review before publication.
+
 ## Available checks
 
 | Check | Coverage |
@@ -30,7 +50,7 @@ The suite exercises the public SFNT/TTC/WOFF/WOFF2/EOT reading API, partial reco
 | Package licensing | MIT declaration, author/copyright, project/repository metadata and bundled LICENSE |
 | Isolated consumer | Compile and execute real strict/partial reads and complete/partial license analysis against the generated library nupkg, including source identity, immutable hints, web formats, EOT fields/provenance, logical diagnostic offsets and new limits; zlib host strict-validation settings run in separate processes |
 | Release scripts | Tag validation, checksum failures, draft recovery, asset collisions and no-op retries with a local GitHub CLI substitute |
-| Installed tool | Fresh local package cache/tool path; help and version |
+| Installed tool | Fresh local package cache/tool path; help/version, real plain/JSON inspection, schema, recovery and license evidence |
 
 ## Fixture provenance and design
 

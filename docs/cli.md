@@ -2,6 +2,8 @@
 
 Package: `Font.Metadata.Tool`. Command: `font-metadata`. Requires .NET 10.
 
+For installation and task-oriented examples, see [CLI recipes](cli-recipes.md).
+
 ## Commands
 
 ```text

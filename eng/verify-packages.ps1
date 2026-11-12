@@ -96,6 +96,7 @@ const string PartialReadFailureMessage = "Packaged reader failed the partial-res
 const string UnexpectedStrictSuccessMessage = "Strict reading unexpectedly accepted incomplete metadata.";
 const string LostPartialMetadataMessage = "Strict reading did not preserve partial metadata.";
 const string ReaderVerifiedMessage = "Packaged SFNT reading, partial results, diagnostics and strict exceptions verified.";
+const string InspectionFacesFailureMessage = "Packaged inspection faces lost availability, identity or immutability.";
 const string LicenseAnalysisFailureMessage = "Packaged license analyzer failed its evidence or completeness contract.";
 const string MutableHintsMessage = "Packaged license hints expose a mutable collection.";
 const string LicenseAnalysisVerifiedMessage = "Packaged license analysis, evidence, immutability and source completeness verified.";
@@ -117,16 +118,29 @@ if(font.Format != FontFormat.Sfnt || font.Faces.Count != 1 || font.Faces[0].Fami
     throw new Exception(CompleteReadFailureMessage);
 byte[] damaged = Convert.FromHexString("0001000000010010000000006E616D65000000000000001C0000002200000002001E000300010409000100020000000300010409000D000200020041D800");
 FontInspectionResult result = FontMetadataReader.Inspect(damaged);
-if(result.Status != FontReadStatus.Partial || result.Metadata.Faces[0].FamilyName != "A" ||
-    result.Metadata.Faces[0].NameTableStatus != FontSectionStatus.Partial || result.Diagnostics.Count != 1 ||
+if(result.Status != FontReadStatus.Partial || result.Faces[0].FamilyName != "A" ||
+    result.Faces[0].NameTableStatus != FontSectionStatus.Partial || result.Diagnostics.Count != 1 ||
     result.Diagnostics[0].Code != FontDiagnosticCodes.InvalidNameTable || result.Diagnostics[0].FaceIndex != 0 ||
     result.Diagnostics[0].TableTag != "name")
     throw new Exception(PartialReadFailureMessage);
+FontInspectionResult unknown = FontMetadataReader.Inspect(Array.Empty<byte>());
+if(unknown.Status != FontReadStatus.NotRecognized || unknown.Metadata != null || unknown.Faces.Count != 0 ||
+    !ReferenceEquals(result.Faces[0], result.Metadata.Faces[0]))
+    throw new Exception(InspectionFacesFailureMessage);
+foreach(FontInspectionResult inspection in new[] { unknown, result }) {
+    if(inspection.Faces is System.Collections.IList faces) {
+        try {
+            faces.Clear();
+            throw new Exception(InspectionFacesFailureMessage);
+        } catch(NotSupportedException) {
+        }
+    }
+}
 try {
     FontMetadataReader.Read(damaged);
     throw new Exception(UnexpectedStrictSuccessMessage);
 } catch(FontReadException exception) {
-    if(exception.Result.Status != FontReadStatus.Partial || exception.Result.Metadata.Faces[0].FamilyName != "A")
+    if(exception.Result.Status != FontReadStatus.Partial || exception.Result.Faces[0].FamilyName != "A")
         throw new Exception(LostPartialMetadataMessage);
 }
 Console.WriteLine(ReaderVerifiedMessage);
@@ -137,7 +151,7 @@ FontMetadata.Face completeFace = FontMetadataReader.Read(licensed).Faces[0];
 FontInspectionResult partialInspection = FontMetadataReader.Inspect(partialLicense);
 if(partialInspection.Status != FontReadStatus.Partial)
     throw new Exception(LicenseAnalysisFailureMessage);
-FontMetadata.Face partialFace = partialInspection.Metadata.Faces[0];
+FontMetadata.Face partialFace = partialInspection.Faces[0];
 foreach(FontMetadata.Face face in new[] { completeFace, partialFace }) {
     FontLicenseAnalysis analysis = FontLicenseAnalyzer.Analyze(face);
     if(analysis.IsSourceComplete != ReferenceEquals(face, completeFace) || analysis.Hints.Count != 1)

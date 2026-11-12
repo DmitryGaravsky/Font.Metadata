@@ -2,6 +2,20 @@
 
 `FontLicenseAnalyzer.Analyze(FontMetadata.Face)` examines already decoded name IDs 13 and 14. It performs no file access, network requests or catalog lookups, and changes neither metadata nor reading diagnostics. The result contains indications with source evidence; it does not establish ownership, approval, permission to use or redistribute a font, or a final license conclusion.
 
+## From source text to a recognized hint
+
+The raw declaration is the decoded `NameRecord.Value`. A recognized hint adds an identifier and rule while retaining that original record as its evidence. The hint does not replace the source text.
+
+| Source value in name ID 13 | Current result | Meaning |
+| --- | --- | --- |
+| `MIT` | `Spdx / MIT / FLA001` with the original source record | A supported individual identifier was recognized |
+| `MIT OR Apache-2.0` | No hints from this declaration; the value remains in `NameRecords` | Compound expressions are outside the current analyzer contract |
+| `Not licensed under MIT` | No hint from this statement | An incidental or negative mention is not a positive declaration |
+
+A complete name table can therefore produce no hints even when it contains a license declaration. Independent accepted declarations in other records are still reported.
+
+Structured SPDX expression analysis is a planned extension, described in the [project status](../README.md#project-status). The current API neither returns an expression tree nor converts its operands into separate hints. Existing recognition rules and source-completeness semantics below remain the current contract.
+
 ## Result and evidence
 
 - `IsSourceComplete` is true for a Complete or Missing name table, and false for Partial, Invalid, NotRead or Unsupported. Partial records are still analyzed.

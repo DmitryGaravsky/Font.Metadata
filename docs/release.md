@@ -4,6 +4,23 @@
 
 The library reads SFNT/TTC, WOFF, WOFF2 and EOT metadata and separately analyzes license evidence from decoded name records. The CLI provides file/stdin inspection with plain/JSON reports and optional license evidence. A release workflow does not imply that a public version already exists.
 
+## Preview readiness
+
+Initial independent validation has established a small reviewed corpus baseline; broader validation continues ahead of the first preview release. Neither that baseline nor a passing build or prepared archive establishes that review of the release candidate is complete.
+
+Before initiating the first preview publication:
+
+- Complete CLI behavior, schema, installed-package and portable checks for the candidate revision.
+- Review independent validation findings for the identified package; distinguish product defects, harness defects, expected limitations and unresolved comparisons.
+- Resolve blocking issues involving crashes, loss of verified data, false completion, unsupported license conclusions or uncontrolled resource use. Recheck any changed package and retain its identity and original observations.
+- Record the evaluated package version/hash, corpus scope, environment and known coverage gaps. Preserve the reviewed baseline before expanding license analysis.
+- Align README examples, release notes and known limitations with the candidate's actual capabilities.
+- Confirm publication configuration and explicitly decide to publish.
+
+These are maintainer review criteria, not additional checks automatically enforced by the release scripts. [Initial validation results](testing.md#independent-validation) describe the evaluated development package and coverage limits; detailed research artifacts are maintained separately.
+
+The first preview does not require the planned SPDX expression parser, Unicode coverage, exhaustive fuzzing or every future research stage. Its documented scope and remaining limitations must be clear. See [Testing](testing.md#verification-layers) and [Processing untrusted fonts](security.md).
+
 ## Version policy
 
 - Stable tags: `v1.0.0`.
@@ -52,11 +69,11 @@ The ZIP uses the tool package's managed payload and includes RUNNING.txt and LIC
 
 The repository and both packages use the [MIT License](../LICENSE). Both packages declare the SPDX expression `MIT` and include LICENSE; the portable CLI ZIP includes the same license text. Copyright metadata is shared in Directory.Build.props.
 
-This is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/). Both packages identify Dmitry Garavsky as author and copyright holder. Package project and repository URLs target `https://github.com/DmitryGaravsky/Font.Metadata`, the planned repository location.
+This is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/). Both packages identify Dmitry Garavsky as author and copyright holder. Package project and repository URLs point to [Font.Metadata on GitHub](https://github.com/DmitryGaravsky/Font.Metadata).
 
-Both packages will be published under the personal NuGet account [DmitryGaravsky](https://www.nuget.org/profiles/DmitryGaravsky). Before the first public release, confirm both package IDs are available or owned by this account and that the repository has been published at the configured URL. Package author metadata identifies Dmitry Garavsky; NuGet ownership is managed by the account.
+Both packages will be published under the personal NuGet account [DmitryGaravsky](https://www.nuget.org/profiles/DmitryGaravsky). Before the first public release, confirm both package IDs are available or owned by this account and that package metadata uses the correct repository URL. Package author metadata identifies Dmitry Garavsky; NuGet ownership is managed by the account.
 
-1. Upload the repository, including release.yml, and enable GitHub Actions. Allow the actions referenced by the workflows.
+1. Confirm that release.yml is present in the candidate revision and GitHub Actions is enabled. Allow the actions referenced by the workflows.
 2. Create a GitHub Actions environment named **nuget**. In its deployment rules, allow tags matching `v*`. An additional reviewer is optional; the workflow does not require one.
 3. In the **nuget** environment, add the configuration variable **NUGET_USER** with the exact value **DmitryGaravsky**. It is a variable, not an API-key secret. Select the personal NuGet account **DmitryGaravsky** as the policy owner on NuGet.org.
 4. On NuGet.org, open **Trusted Publishing** and create a policy with the following values:
