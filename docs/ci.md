@@ -1,6 +1,6 @@
 # Continuous integration
 
-[The workflow](../.github/workflows/ci.yml) runs on pushes to `main`, pull requests and manual dispatch. Each run verifies Ubuntu, Windows and macOS. Feature-branch pushes do not start a separate run, avoiding duplicate checks for an open pull request. Branches without a pull request can be checked through manual dispatch. Version tag pushes use the separate [release workflow](../.github/workflows/release.yml).
+[The workflow](../.github/workflows/ci.yml) runs on pushes to `main`, pull requests and manual dispatch. Pull requests verify Ubuntu and Windows. Pushes to `main` and manual runs also verify macOS. Feature-branch pushes do not start a separate run, avoiding duplicate checks for an open pull request. Branches without a pull request can be checked through manual dispatch. Version tag pushes use the separate [release workflow](../.github/workflows/release.yml).
 
 Each job installs the latest stable .NET 10 SDK (10.0.x), then runs the same [verification script](../eng/verify.ps1) used locally:
 

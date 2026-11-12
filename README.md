@@ -88,7 +88,7 @@ The analyzer performs no I/O and preserves independent and conflicting indicatio
 | Library | .NET 10 |
 | CLI | .NET 10 |
 | Build | .NET 10 SDK and PowerShell 7 |
-| CI test matrix | .NET 10 on Windows, Linux and macOS |
+| CI test matrix | .NET 10 on Windows and Linux for PRs; also macOS on main, manual runs and releases |
 
 The library and tool require .NET 10. The build uses a stable .NET 10 SDK selected by global.json.
 
