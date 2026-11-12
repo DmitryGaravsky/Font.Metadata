@@ -1,5 +1,7 @@
 # Font.Metadata
 
+[![Build and test (main)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml?query=branch%3Amain)
+
 Font.Metadata is a .NET 10 library for reading font metadata, with a companion command-line project. It is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/).
 
 The current development version reads **SFNT (TrueType/OpenType), TTC/OTC, WOFF, WOFF2 and EOT**. It exposes names, vendor identifiers and raw embedding flags, preserves partial results, and reports table status and structured diagnostics.

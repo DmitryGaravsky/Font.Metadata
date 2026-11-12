@@ -78,3 +78,7 @@ try {
 finally {
     Pop-Location
 }
+
+# Expected CLI failures must not leak their native exit code into the Actions shell.
+# Keep this after validation and cleanup so exceptions still fail the caller.
+exit 0

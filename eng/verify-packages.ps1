@@ -314,7 +314,7 @@ sealed class ChunkedInput : System.IO.MemoryStream {
     if($LASTEXITCODE -ne 0 -or ($actualVersion.Trim() -split '\+')[0] -ne $version) {
         throw ('Installed tool version does not match {0}.' -f $version)
     }
-    & (Join-Path $PSScriptRoot 'verify-cli.ps1') -Executable $executable -WorkDirectory (Join-Path $run 'cli')
+    & (Join-Path $PSScriptRoot 'test-cli-verification.ps1') -Executable $executable -WorkDirectory (Join-Path $run 'cli')
     Write-Host 'PackageReference consumer and installed dotnet tool checks passed.'
 } finally {
     $env:NUGET_PACKAGES = $originalPackages
