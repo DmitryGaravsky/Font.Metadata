@@ -32,6 +32,16 @@ Extended WOFF/WOFF2 XML and private block contents are not extracted or decoded.
 
 ## Name tables
 
+The API separates decoded source evidence from preferred values:
+
+| Level | Availability |
+| --- | --- |
+| Encoded source bytes | Used during parsing, but not retained or exposed in results. Invalid or unsupported records are diagnosed and may have no `NameRecord`. |
+| Decoded source records | `NameRecords` retains successfully decoded strings and their original record context, including duplicates. Here, descriptions such as “raw name value” mean an unnormalized decoded string, not original bytes. |
+| Preferred values | Face properties select and trim eligible decoded records using the rules below; they do not replace source records. |
+
+Record indexes can have gaps after recovery. Preserve the original input separately if byte-for-byte evidence is required; the result object is not a lossless archive of the file. Optional byte retention would be a new API, ownership and resource-budget decision.
+
 Formats 0 and 1 are supported. Decoded records retain source order, source indexes, IDs, duplicate entries, unknown name IDs, empty strings, whitespace and NUL characters. Unsupported encodings and invalid byte sequences are diagnosed rather than guessed as ASCII.
 
 | Platform | Encoding IDs | Decoder |
@@ -69,6 +79,8 @@ A readable fsType survives a truncated or malformed vendor identifier. Vendor by
 `Os2TableStatus.Complete` means that the supported 62-byte metadata prefix was readable. The reader does not require or validate later metrics, whose lengths vary by version. It does not interpret fsType as a license verdict.
 
 ## Validation boundaries
+
+Variable and color fonts can supply the supported name/OS/2 metadata. The reader does not interpret variation axes, named instances, variation programs or color glyph data. General table enumeration and WOFF/WOFF2 XML metadata extraction are also unavailable.
 
 This is a metadata reader, not a rasterizer or comprehensive OpenType validator. It accepts metadata-only synthetic fonts and does not require head, cmap, glyph outlines or a family string. It does not validate glyph programs, SFNT table checksums, searchRange fields, DSIG signatures or full OS/2 metric layouts. It does not validate all table relationships between different TTC faces, beyond inspected directory protection and exact shared metadata reuse.
 

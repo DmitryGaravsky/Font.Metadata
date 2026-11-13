@@ -18,9 +18,11 @@ These capabilities support font catalogs, attribution reviews and metadata colle
 
 ## Project status
 
-The core metadata readers and CLI inspection are implemented. Independent validation passed all 135 sample/operation checks on a 45-sample reviewed corpus, with scoped FontTools/OTS comparisons; broader validation continues ahead of the first preview release. See [Testing](docs/testing.md#independent-validation) for the evaluated package, coverage and remaining limits.
+**Experimental (pre-1.0).** The public API is not yet stable. Implemented readers and CLI commands are usable within their documented scope; compatibility and release-candidate validation remain separate review steps. See [API evolution](docs/api.md#compatibility-and-evolution).
 
-Current license analysis recognizes a documented set of identifiers, names and URLs. Standalone SPDX expression analysis and its integration into font inspection, followed by Unicode coverage, are planned extensions. They are not part of the current API; preview release readiness does not depend on their completion.
+The core metadata readers and CLI inspection are implemented. Independent validation passed all 135 sample/operation checks on a 45-sample reviewed corpus, with scoped FontTools/OTS comparisons. A separate Windows robustness campaign passed 62 contract/boundary checks and observed no execution failures in 256 seeded mutations; the initial research cycle is complete with documented limitations. Exploratory Parse/Analyze/I/O measurements did not confirm a product regression or establish stable release thresholds. See [Testing](docs/testing.md#independent-validation) for the evaluated package, coverage and remaining limits.
+
+Current license analysis recognizes a documented set of identifiers, names and URLs. SPDX expression integration into font inspection and Unicode coverage are planned extensions. They are not part of the current API; preview release readiness does not depend on their completion.
 
 ## Use as a dotnet tool
 
@@ -150,11 +152,13 @@ The build uses a stable .NET 10 SDK selected by global.json.
 pwsh -File eng/verify.ps1
 ```
 
-This restores dependencies, builds the solution, runs NUnit and offline release-script tests, checks C# whitespace, creates local development packages and verifies a PackageReference consumer and an installed dotnet tool. These checks are distinct from the ongoing independent corpus validation.
+This restores dependencies, builds the solution, runs NUnit and offline release-script tests, checks C# whitespace, creates local development packages and verifies a PackageReference consumer and an installed dotnet tool. These checks are distinct from the completed initial independent validation cycle; a new release candidate still requires its own review.
 
 Tagged releases publish the library and dotnet tool to NuGet.org and attach a portable CLI archive to GitHub Releases. Publication requires the setup and readiness review in [Releases](docs/release.md). Local verification does not publish anything.
 
 ## Documentation
+
+This README is the capability overview. The linked references own the detailed contracts: Formats for supported data, API and Diagnostics for reading outcomes, CLI and its schema for reports, and Testing for measured validation scope. Plans do not establish implemented behavior; source and tests must substantiate these descriptions.
 
 - [API and usage](docs/api.md)
 - [Formats and metadata](docs/formats.md)

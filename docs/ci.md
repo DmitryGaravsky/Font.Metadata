@@ -20,6 +20,10 @@ TRX reports are uploaded even when a later check fails. Local development packag
 
 The CI workflow requires only repository read permission and does not use publication credentials. The separate tag-triggered release workflow verifies the exact tagged commit on all three operating systems, then publishes the verified Linux artifacts through two dependent jobs: NuGet first, GitHub Release second. See [Releases](release.md) for triggers, authentication and recovery.
 
-The first hosted run becomes possible after the repository is uploaded to GitHub with Actions enabled. Local verification does not establish that a hosted runner job has passed.
+Hosted results must be established from a retained workflow run for the relevant revision. Local verification and the presence of a workflow do not establish that a hosted runner job has passed.
+
+## Documentation checks
+
+Package/tool verification checks the documented CLI JSON examples against the local schema. It does not automatically establish that all Markdown links, C# snippets, capability descriptions or prose contracts are current. Those require the [documentation review](../CONTRIBUTING.md#formatting-and-documentation). Repository-wide link/snippet and API-documentation drift checks are not currently implemented; they are separate CI work, not a guarantee provided by this workflow.
 
 Workflow action usage follows the maintainers' documentation: [checkout](https://github.com/actions/checkout), [setup-dotnet](https://github.com/actions/setup-dotnet), [upload-artifact](https://github.com/actions/upload-artifact).

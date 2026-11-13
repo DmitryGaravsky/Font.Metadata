@@ -12,7 +12,7 @@ Work directly in this repository for its authorized tasks. Changes to external c
 
 Agents may read and inspect the repository using Git, including status, diff, log, show, blame, ls-files and other read-only analysis operations. Editing project files and running build/test checks are allowed within the authorized task. The user performs operations that change Git state or remote repository state after reviewing the changes. Do not stage, commit, create or switch branches, manage worktrees, merge, rebase, stash, reset, clean, create or delete tags, change remotes, fetch, pull or push. Do not modify Git metadata directly or use wrappers or repository-management APIs to bypass this rule. At the end of each reasonably complete implementation task, include a suggested commit title in the final response without waiting for a separate request. This rule applies unless the user explicitly changes it.
 
-Keep research, comparisons with original projects and temporary planning outside the repository. Do not embed local workspace paths or research transcripts in product documentation.
+Keep research, hypothesis checks, experiments, ideas, reports, feature proposals, comparisons and temporary plans outside the repository. Do not copy those materials into the repository or make code, builds, tests or documentation depend on them. Repository files must not link or refer readers to unpublished local research files or their contents. Product documentation may contain self-contained, reviewed findings without local paths, filenames or directions to external research materials.
 
 ## Read by task
 
@@ -92,3 +92,29 @@ These invariants apply to implemented and future readers:
 - Verify relative links and examples. Report exactly what ran; local success does not imply a GitHub-hosted run passed.
 - Inspect the complete change and report the outcome, verification and remaining limitations. Do not stage or commit automatically.
 - At the end of a major implementation phase, review the PR description against the final scope, behavior and validation results. If it is outdated, propose a revised description for the user to apply.
+
+## Isolated .NET SDK execution
+
+Before the first `dotnet` invocation in an isolated run, including `--version`,
+set these values explicitly in the child process environment:
+
+| Variable | Value | Purpose |
+| --- | --- | --- |
+| `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH` | `0` | Prevent persistent tools-directory additions to PATH |
+| `DOTNET_GENERATE_ASPNET_CERTIFICATE` | `false` | Prevent development-certificate generation |
+| `DOTNET_CLI_TELEMETRY_OPTOUT` | `1` | Disable CLI telemetry |
+| `DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE` | `true` | Disable background workload advertising-manifest downloads |
+| `DOTNET_NOLOGO` | `1` | Suppress welcome output; this is not an isolation guard |
+
+- A fresh `DOTNET_CLI_HOME` does not isolate persistent user settings. Apply the
+  guards to every SDK process, including preparation, restore, build and nested consumers.
+- Do not rely on `DOTNET_SKIP_FIRST_TIME_EXPERIENCE`; modern SDKs do not support it.
+- Never persist these overrides or modify user/machine PATH to isolate a test.
+  Persistent environment changes require explicit user authorization.
+- Prefer child-process environment dictionaries. If temporarily changing the parent
+  process environment, restore previous values in `finally`. Do not repurpose HOME or USERPROFILE.
+- When adding or changing an isolated launcher, verify a fresh-home run leaves user
+  and machine PATH unchanged; on Windows preserve raw values and registry value kinds.
+- These settings do not make restore offline. Use explicit local feeds when required.
+
+Reference: [Microsoft SDK environment variables](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-environment-variables).

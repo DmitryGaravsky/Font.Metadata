@@ -8,19 +8,46 @@ The suite exercises the public SFNT/TTC/WOFF/WOFF2/EOT reading API, partial reco
 | --- | --- | --- |
 | Repository tests | Check public contracts, parser recovery, limits and CLI behavior with controlled fixtures | Test results apply to the tested revision and host; the CI matrix determines hosted platform coverage |
 | Package and portable checks | Exercise actual nupkg consumers, the installed tool and the extracted portable CLI | Verify packaging and documented behavior without assuming a ProjectReference build represents the distributed artifact |
-| Independent package and corpus validation | Evaluate real-world metadata, evidence and reproducible differences through the public API of an identified package | Initial bounded corpus validation completed; broader coverage remains in progress, separately from repository CI |
+| Independent package and corpus validation | Evaluate real-world metadata, evidence and reproducible differences through the public API of an identified package | Initial research cycle completed with documented limits; further checks run for release candidates or relevant changes, separately from repository CI |
 
 A successful repository pipeline does not establish completion of the independent validation campaign. Likewise, an observed baseline records a package's behavior; it does not turn that behavior into a correctness expectation.
 
 ## Independent validation
 
-Independent validation was expanded on 2026-11-13 on Windows with .NET SDK 10.0.402. The evaluated Font.Metadata 0.1.0-dev package has SHA-256 `7C5079568C533AEB1F5F0392ADFD0A0982BEC197DBD4E2CEA938D9E748D7F825`. All 135 Inspect/Read/Analyze checks passed against reviewed expectations for 45 samples, including CJK, variable TrueType/CFF2, COLRv1/SVG/sbix, shared collections and partial-recovery inputs. No product defect was confirmed on this corpus; initial expectation errors were corrected after contract review with the original evidence retained.
+The initial independent validation cycle concluded on 2026-11-13 with documented limitations, on Windows with .NET SDK 10.0.402. The evaluated Font.Metadata 0.1.0-dev package has SHA-256 `7C5079568C533AEB1F5F0392ADFD0A0982BEC197DBD4E2CEA938D9E748D7F825`. All 135 Inspect/Read/Analyze checks passed against reviewed expectations for 45 samples, including CJK, variable TrueType/CFF2, COLRv1/SVG/sbix, shared collections and partial-recovery inputs. No product defect was confirmed on this corpus; initial expectation errors were corrected after contract review with the original evidence retained.
 
-The separate harness preserves source records and evidence, performs field-level package comparisons, and supports replay from saved inputs and run manifests. Its 65 passing tests validate the harness itself. FontTools 4.68.0 comparisons produced 27 agreements and 18 inconclusive cases, with no differences in comparable metadata; all five container-equivalence checks passed. OTS 9.2.0 results remain separate: rejection of a metadata-only fixture is not automatically a reader defect. Detailed observations and reproducibility artifacts remain in the separate research workspace.
+The separate harness preserves source records and evidence, performs field-level package comparisons, and supports replay from saved inputs and run manifests. At research closeout, 89 passing tests validated the harness itself. FontTools 4.68.0 comparisons produced 27 agreements and 18 inconclusive cases, with no differences in comparable metadata; all five container-equivalence checks passed. OTS 9.2.0 results remain separate: rejection of a metadata-only fixture is not automatically a reader defect.
+
+FontTools also contributed to real-font expectation preparation, so its agreement is not an additional oracle independent of those expectations. That adapter profile does not read EOT or WOFF2 collections; their reviewed cases and container checks must not be described as FontTools agreement. The 45 samples include derived containers and synthetic cases, not 45 independent real-world font families.
+
+A subsequent Windows robustness campaign evaluated the same package through 62 reviewed contract/boundary profiles and 256 deterministic mutations from eight seeds. All 318 worker executions completed with an enforced 512 MiB Windows Job committed-memory cap and a four-second timeout per case. The reviewed profiles covered Inspect/Read stream and overload contracts, all 14 reader limits, shared strings, zlib/Brotli expansion, independently encoded MTX/LZCOMP/RLE and aggregate main/EUDC budgets. Mutation results establish only that no execution failure was observed, not correctness of the extracted metadata. Controlled processes separately verified memory-limit notifications, tree termination and failure minimization/reproduction; no product failure required minimization.
+
+An exploratory Windows performance study used BenchmarkDotNet 0.15.8 on eight reviewed inputs, separating Inspect/Read over preloaded bytes, Analyze over decoded metadata, combined reading/analysis and file/stream I/O. Three baseline and two candidate runs compared two distinct builds of 0.1.0-dev (baseline SHA-256 above; candidate SHA-256 `94DBE7954F886FF0257688A0276B040C2B6F06B011DE19EC6B319B129A7AE2E6`), not two published versions; parallel and sequential corpus runs were measured separately. Eleven of 48 microbenchmark cases remained inconclusive because of temporal drift. A small timing signal was inconclusive on repetition; a repeated parallel-batch allocation signal includes scheduler and harness overhead and remains under review. No product performance regression was confirmed, and no release timing threshold was established.
+
+Managed allocated bytes per operation, macro batch allocations and process peak working set are different measurements; none establishes an exact parser peak-memory bound. Byte-input parsing excludes file loading, whereas file/stream paths include buffering. Cold-cache/startup and long-duration workloads were not measured.
 
 Completed validation reports should identify the package version and SHA-256, corpus revision and sample provenance, adapter/tool versions, options and limits, environment, and unresolved findings. Reports should distinguish reviewed expectations, observations from independent tools and baseline observations from Font.Metadata. Findings need reproducible inputs or recipes; missing required evidence must not be reported as a successful check.
 
-This is an initial regression baseline, not representative coverage of real-world fonts. Positive FLA002/FLA003 cases are now covered, but broad license-recognition accuracy, hostile-input resilience and parsing performance remain unestablished. Broader validation and review of the actual release candidate remain necessary. See [Processing untrusted fonts](security.md) for existing protections and [Preview readiness](release.md#preview-readiness) for the review before publication.
+This completed cycle provides an initial regression baseline, not representative coverage of real-world fonts or release approval. Positive FLA002/FLA003 cases, selected negative/conflicting examples and hint provenance are covered; broad license-recognition precision/recall remains unmeasured. Long-running fuzzing, cross-platform performance and stable timing thresholds also remain open. No confirmed product finding from this bounded cycle requires an immediate code change. Release candidates and parser, decoder, limit or license-rule changes require their own scoped validation; no ongoing campaign or mandatory performance gate is implied. See [Processing untrusted fonts](security.md) for existing protections and [Preview readiness](release.md#preview-readiness) for the review before publication.
+
+## Recording and reusing results
+
+A report records what ran against an identified artifact; it does not certify the current working tree or another package with the same version. Keep these fields with each validation record:
+
+| Field | Required distinction |
+| --- | --- |
+| Artifact | Package ID/version/SHA-256, source revision when known, and any source changes; do not guess an unavailable revision. |
+| Inputs and configuration | Corpus/suite identity and hashes, provenance/licenses, reviewed expectation revision, options, limits and seeds. |
+| Environment | OS/architecture, SDK/runtime and adapter/tool versions; benchmark host and measurement boundary when relevant. |
+| Execution | Run ID/date, commands, checks actually executed, counts with their units, skipped/unavailable checks and original reports. |
+| Interpretation | Expected contract versus observation; agreement, disagreement and inconclusive results; unresolved finding IDs and coverage gaps. |
+| Follow-up | Fix/recheck identity, retained original evidence and the event that requires a new run. |
+
+Keep corpus checks, harness tests, worker completion and benchmark cases as separate counts. Seeded input mutation is not mutation testing of the implementation, coverage-guided fuzzing or proof that extracted metadata is correct. A missing oracle or unavailable platform remains unverified rather than passing.
+
+Corrections to validation tools or expectations require a dated explanation and new observations; retain the original hashed reports. Checks of a test launcher or its SDK environment do not establish a new product correctness or performance baseline. Keep their scope separate from checks of the library itself.
+
+Recheck a release candidate as a new artifact. Parser/decoder/limit changes trigger the affected corpus and robustness checks; license-rule changes trigger reviewed evidence comparisons. Performance work first needs same-package controls and a stable host baseline. A new platform/runtime needs its own environment record. These are event-driven follow-ups, not an active recurring research campaign.
 
 ## Available checks
 

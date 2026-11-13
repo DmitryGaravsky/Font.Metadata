@@ -36,6 +36,16 @@ FontLicenseAnalyzer.Analyze(Face)
 
 The metadata and diagnostic types are sealed, immutable results with internal constructors. Nested models do not capture an outer instance. Collections do not expose mutable backing storage; results retain neither input buffers nor streams. An empty collection or a null property is interpreted together with its status, rather than as proof of absent source data.
 
+## Compatibility and evolution
+
+The pre-1.0 API is experimental; stable source and binary compatibility has not been declared. Pin the package version used by an integration and review documented changes before upgrading. A development version string alone does not identify the evaluated bytes; validation reports also record the package SHA-256.
+
+Changes to names, signatures, nullability, ownership, status meanings, limits, selection or license-recognition behavior require explicit compatibility review. Adding a property or enum member is not automatically harmless: consumers may use exhaustive switches or their own serializers. Handle unfamiliar values explicitly rather than treating them as `Complete`, and do not rely on enum ordinals or diagnostic message text as a wire protocol.
+
+New result properties must preserve immutability and distinguish unavailable data from verified empty or zero values. A new metadata section must define its completeness and recovery semantics before implementation. Public API changes require real-package consumer checks; the stable-release compatibility policy and API compatibility automation remain work to complete before 1.0.
+
+The CLI has its own [versioned JSON contract](cli.md#json-contract-schema-version-1). Library types are not a serialization schema; a breaking JSON shape, type or meaning change requires a new schema version. Recognition changes must be documented even when the JSON shape is unchanged.
+
 ## Ordinary reading
 
 ```csharp

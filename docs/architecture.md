@@ -2,6 +2,45 @@
 
 The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC, WOFF, WOFF2 and EOT reading. The CLI exposes inspect, plain/JSON reports, binary stdin and optional license evidence. License evidence analysis is an independent operation on decoded records.
 
+## Domain model
+
+| Term | Current representation and boundary |
+| --- | --- |
+| Container | One supplied input origin. `FontMetadata` describes its format, available faces and independent EOT header facts; `FontInspectionResult` adds overall status and diagnostics. No public `FontContainer` type exists. |
+| Font | A general domain term, not an additional public object or a globally identified font family. A file can contain several faces. |
+| Face | `FontMetadata.Face`, with its original container index, source, decoded records, preferred values and section statuses. An unreadable bounded face can remain a placeholder. |
+| Table | A tagged logical SFNT data section. Physical ranges and decoded buffers are internal; the public API exposes supported name/OS/2 metadata and statuses, not a general table inventory or `FontTable` object. |
+| Record | `FontMetadata.NameRecord`: a successfully decoded name entry with original index, IDs and language context. It is not a copy of the encoded record bytes. |
+
+```text
+Input container → FontInspectionResult (status + diagnostics)
+                       └── FontMetadata (container facts)
+                            ├── Faces: original indexes + metadata
+                            │    └── NameRecords → preferred values / license evidence
+                            └── Eot: independent header facts, when available
+```
+
+TTC/OTC and WOFF2 collection faces can reference shared tables. Physical sharing does not merge faces or renumber their records; internal caches can reuse immutable decoded data, while diagnostics identify each affected face. Table ownership is therefore not a tree of exclusive byte buffers. Physical offsets and logical table offsets remain separate coordinates.
+
+Reading names from a variable font does not enumerate its axes or named instances. The current model has no variation-instance identity, `Variations` property or general `Tables` collection. Adding those capabilities requires an explicit model and compatibility review; the present metadata model neither implements them nor proves that every future extension will be additive.
+
+## Design principles
+
+| Principle | Current interpretation |
+| --- | --- |
+| Metadata first | Extract supported metadata without rendering, shaping, installation or a complete OpenType validator. |
+| Common model | Share face/record contracts across containers; keep EOT header facts separate and format-specific parsing internal. |
+| Preserve evidence | Keep decoded values, duplicates, original indexes and provenance. Raw source-byte retention is not provided. |
+| Partial results | Recover only through verified ranges; report container and section completeness independently. |
+| Bounded processing | Account for work across the operation, including failed decoding and shared data. Budgets and cancellation do not establish a hard process-memory or time ceiling. |
+| Deterministic metadata | For the same package, input and options, selection and evidence ordering do not depend on process culture. This is not a promise of identical OS I/O messages or results across different package versions. |
+| No legal conclusions | Keep source evidence, recognition and application policy distinct. |
+| Explicit contracts | Use immutable results and structured outcomes; review API and JSON compatibility before extending the experimental API. |
+| Independent verification | Separate reviewed expectations, external-reader observations and product baselines; retain inconclusive findings. |
+| Minimal dependencies | Keep reading independent of CLI, research infrastructure and consumer policy; add abstractions only for a concrete responsibility. |
+
+These principles explain the implemented boundaries. They do not require a public plugin system, a generic table-source interface, DI infrastructure or additional packages. [Formats](formats.md), [API](api.md), [Security](security.md) and [Testing](testing.md) define the detailed scope.
+
 ## Repository layout
 
 ```text
@@ -105,7 +144,7 @@ The library has no application-layer dependencies, package dependencies or proje
                          │
        shared table + preferred names + string budget
                          ▼
-       raw records / preferred values / diagnostics
+       decoded records / preferred values / diagnostics
                          │
                          ▼
              immutable FontInspectionResult

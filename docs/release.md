@@ -6,7 +6,7 @@ The library reads SFNT/TTC, WOFF, WOFF2 and EOT metadata and separately analyzes
 
 ## Preview readiness
 
-Initial independent validation has established a small reviewed corpus baseline; broader validation continues ahead of the first preview release. Neither that baseline nor a passing build or prepared archive establishes that review of the release candidate is complete.
+The initial independent validation cycle is complete with documented limitations and a retained reviewed corpus baseline. Validation resumes for the specific preview candidate or relevant product changes; no broader campaign is currently implied. Neither that baseline nor a passing build or prepared archive establishes that review of the release candidate is complete.
 
 Before initiating the first preview publication:
 
@@ -17,9 +17,9 @@ Before initiating the first preview publication:
 - Align README examples, release notes and known limitations with the candidate's actual capabilities.
 - Confirm publication configuration and explicitly decide to publish.
 
-These are maintainer review criteria, not additional checks automatically enforced by the release scripts. [Initial validation results](testing.md#independent-validation) describe the evaluated development package and coverage limits; detailed research artifacts are maintained separately.
+These are maintainer review criteria, not additional checks automatically enforced by the release scripts. [Initial validation results](testing.md#independent-validation) describe the evaluated development package and coverage limits.
 
-The first preview does not require the planned SPDX expression parser, Unicode coverage, exhaustive fuzzing or every future research stage. Its documented scope and remaining limitations must be clear. See [Testing](testing.md#verification-layers) and [Processing untrusted fonts](security.md).
+The first preview does not require the planned SPDX expression integration, Unicode coverage, exhaustive fuzzing or every future research stage. Its documented scope and remaining limitations must be clear. See [Testing](testing.md#verification-layers) and [Processing untrusted fonts](security.md).
 
 ## Version policy
 
