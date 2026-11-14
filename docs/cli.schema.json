@@ -19,6 +19,9 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 2147483590
+        },
+        "analyzeSpdx": {
+          "const": true
         }
       },
       "required": [
@@ -33,6 +36,9 @@
         "$ref": "#/$defs/result"
       },
       "minItems": 1
+    },
+    "spdxContext": {
+      "$ref": "#/$defs/spdxContext"
     }
   },
   "required": [
@@ -398,6 +404,9 @@
         },
         "licenseAnalysis": {
           "$ref": "#/$defs/analysis"
+        },
+        "spdxAnalysis": {
+          "$ref": "#/$defs/spdxAnalysis"
         }
       },
       "required": [
@@ -665,6 +674,493 @@
           }
         }
       ]
+    },
+    "spdxSpan": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "start",
+        "length"
+      ]
+    },
+    "spdxDiagnostic": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "error"
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/spdxSpan"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "span",
+        "message"
+      ]
+    },
+    "spdxOccurrence": {
+      "type": "object",
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "span": {
+          "$ref": "#/$defs/spdxSpan"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "license",
+            "exception"
+          ]
+        },
+        "lookupStatus": {
+          "type": "string",
+          "enum": [
+            "known",
+            "unknown",
+            "wrongKind"
+          ]
+        },
+        "canonicalIdentifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "isDeprecated": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "identifier",
+        "span",
+        "role",
+        "lookupStatus",
+        "canonicalIdentifier",
+        "isDeprecated"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "lookupStatus": {
+                "const": "known"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "canonicalIdentifier": {
+                "type": "string",
+                "minLength": 1
+              },
+              "isDeprecated": {
+                "type": "boolean"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "canonicalIdentifier": {
+                "type": "null"
+              },
+              "isDeprecated": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "spdxValidation": {
+      "type": "object",
+      "properties": {
+        "hasIdentifierErrors": {
+          "type": "boolean"
+        },
+        "hasUnresolvedReferences": {
+          "type": "boolean"
+        },
+        "diagnosticsTruncated": {
+          "type": "boolean"
+        },
+        "identifierOccurrences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spdxOccurrence"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "documentId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "licenseId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "span": {
+                "$ref": "#/$defs/spdxSpan"
+              }
+            },
+            "required": [
+              "documentId",
+              "licenseId",
+              "span"
+            ]
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spdxDiagnostic"
+          }
+        }
+      },
+      "required": [
+        "hasIdentifierErrors",
+        "hasUnresolvedReferences",
+        "diagnosticsTruncated",
+        "identifierOccurrences",
+        "references",
+        "diagnostics"
+      ]
+    },
+    "spdxDeclaration": {
+      "type": "object",
+      "properties": {
+        "ruleId": {
+          "type": "string",
+          "enum": [
+            "FSI001",
+            "FSI002"
+          ]
+        },
+        "sourceRecord": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/record"
+            },
+            {
+              "properties": {
+                "nameId": {
+                  "const": 13
+                }
+              }
+            }
+          ]
+        },
+        "sourceStart": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "sourceLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "expressionText": {
+          "type": "string"
+        },
+        "parseStatus": {
+          "type": "string",
+          "enum": [
+            "success",
+            "invalidSyntax",
+            "limitExceeded"
+          ]
+        },
+        "parseDiagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spdxDiagnostic"
+          }
+        },
+        "validation": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/spdxValidation"
+            }
+          ]
+        }
+      },
+      "required": [
+        "ruleId",
+        "sourceRecord",
+        "sourceStart",
+        "sourceLength",
+        "expressionText",
+        "parseStatus",
+        "parseDiagnostics",
+        "validation"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "parseStatus": {
+                "const": "success"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "validation": {
+                "$ref": "#/$defs/spdxValidation"
+              },
+              "parseDiagnostics": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "validation": {
+                "type": "null"
+              },
+              "parseDiagnostics": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ruleId": {
+                "const": "FSI002"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parseStatus": {
+                "const": "success"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "spdxAdapterDiagnostic": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "FSI_SOURCE_RECORD_LIMIT",
+            "FSI_SOURCE_CHARACTER_LIMIT",
+            "FSI_DECLARATION_LIMIT",
+            "FSI_PROBE_PARSE_LIMIT"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "sourceRecord": {
+          "$ref": "#/$defs/record"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "sourceRecord"
+      ]
+    },
+    "spdxAnalysis": {
+      "type": "object",
+      "properties": {
+        "isSourceComplete": {
+          "type": "boolean"
+        },
+        "isAnalysisComplete": {
+          "type": "boolean"
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spdxDeclaration"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spdxAdapterDiagnostic"
+          }
+        },
+        "diagnosticsTruncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "isSourceComplete",
+        "isAnalysisComplete",
+        "declarations",
+        "diagnostics",
+        "diagnosticsTruncated"
+      ]
+    },
+    "spdxContext": {
+      "type": "object",
+      "properties": {
+        "recognitionProfile": {
+          "const": "font-name13-v1"
+        },
+        "syntaxProfile": {
+          "const": "SPDX-2.3.1"
+        },
+        "registry": {
+          "type": "object",
+          "properties": {
+            "licenseListVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "licensesSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "exceptionsSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "licenseListVersion",
+            "licensesSha256",
+            "exceptionsSha256"
+          ]
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "maxSourceRecords": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "maxTotalSourceCharacters": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "maxDeclarations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "maxDiagnostics": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "parseOptions": {
+              "type": "object",
+              "properties": {
+                "maxInputLength": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxIdentifierLength": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxTokens": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxNodes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "maxParenthesisDepth": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                }
+              },
+              "required": [
+                "maxInputLength",
+                "maxIdentifierLength",
+                "maxTokens",
+                "maxNodes",
+                "maxParenthesisDepth"
+              ]
+            },
+            "validationOptions": {
+              "type": "object",
+              "properties": {
+                "maxDiagnostics": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                }
+              },
+              "required": [
+                "maxDiagnostics"
+              ]
+            }
+          },
+          "required": [
+            "maxSourceRecords",
+            "maxTotalSourceCharacters",
+            "maxDeclarations",
+            "maxDiagnostics",
+            "parseOptions",
+            "validationOptions"
+          ]
+        }
+      },
+      "required": [
+        "recognitionProfile",
+        "syntaxProfile",
+        "registry",
+        "options"
+      ]
     }
   },
   "allOf": [
@@ -770,6 +1266,77 @@
                         "not": {
                           "required": [
                             "licenseAnalysis"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "options": {
+            "required": [
+              "analyzeSpdx"
+            ],
+            "properties": {
+              "analyzeSpdx": {
+                "const": true
+              }
+            }
+          }
+        },
+        "required": [
+          "options"
+        ]
+      },
+      "then": {
+        "required": [
+          "spdxContext"
+        ],
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "required": [
+                          "spdxAnalysis"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "spdxContext"
+          ]
+        },
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "not": {
+                          "required": [
+                            "spdxAnalysis"
                           ]
                         }
                       }

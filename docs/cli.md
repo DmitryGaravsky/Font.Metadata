@@ -25,6 +25,7 @@ Inspection is explicit; a bare filename is not a command. No arguments display h
 | `--format plain\|json` | plain | Human-readable text or one versioned JSON report |
 | `--include-name-records` | off | All available decoded name records, including unknown IDs and duplicates |
 | `--analyze-licenses` | off | Per-face license indications with their complete source records |
+| `--analyze-spdx` | off | Independent whole-record SPDX expression attempts, native outcomes and source evidence |
 | `--max-input-bytes N` | 134217728 | Maximum bytes per source; other library decoding limits still apply |
 
 Values must be separate arguments; `--format=json`, aliases, repeated options and mixed help/inspection requests are invalid. N is ASCII decimal digits without signs, separators or suffixes, in 1..Array.MaxLength-1. Leading zeros are allowed. At least one source is required. All arguments are validated before any input is opened.
@@ -42,7 +43,7 @@ font-metadata inspect --format plain -- -font.ttf
 font-metadata inspect Example.woff2 --max-input-bytes 67108864
 ```
 
-Use a binary-preserving pipe for stdin. It is never read through a text decoder. The tool reads up to EOF or one byte beyond the input limit; exceeding the limit returns the library's incomplete result instead of parsing a truncated prefix. Processing budgets reset between files, but remain shared across faces and EOT main/EUDC within one container. See [limits](api.md#limits).
+Use a binary-preserving pipe for stdin. It is never read through a text decoder. The tool reads up to EOF or one byte beyond the input limit; exceeding the limit returns the library's incomplete result instead of parsing a truncated prefix. Reader processing budgets reset between files, but remain shared across faces and EOT main/EUDC within one container. See [limits](api.md#limits). Optional SPDX analysis has separate budgets that reset for each face; see [SPDX limits](spdx.md).
 
 ## Reports and channels
 
@@ -65,7 +66,8 @@ The CLI uses an explicit projection, not automatic serialization of library obje
 | Root field | Meaning |
 | --- | --- |
 | schemaVersion | 1 |
-| options | includeNameRecords, analyzeLicenses (booleans), maxInputBytes (integer) |
+| options | includeNameRecords, analyzeLicenses (booleans), maxInputBytes (integer); analyzeSpdx=true only with --analyze-spdx |
+| spdxContext | Present only with --analyze-spdx: recognition/syntax profiles, registry identity and analysis limits |
 | results | Nonempty array in argv order |
 
 Each result has `source`, `status`, `metadata` and `diagnostics`. Source is `{ "kind": "file", "path": "<original argument>" }` or `{ "kind": "stdin", "path": null }`. Relative paths remain relative; a literal file named `-` is distinguishable from stdin.
@@ -87,6 +89,9 @@ All documented nullable properties are present as null; zero, false, empty strin
 
 - `nameRecords`, present with --include-name-records, including an empty array for unavailable records.
 - `licenseAnalysis`, present with --analyze-licenses, including for placeholder faces.
+- `spdxAnalysis`, present with --analyze-spdx, including for placeholder faces.
+
+The opt-in SPDX extension also adds `options.analyzeSpdx=true` and root `spdxContext`; both are absent without the flag. See [SPDX API, JSON and limits](spdx.md) for the complete contract and [example](examples/cli-spdx.json). Parse/validation findings do not change reader exit codes. The default registry initializes before input/reporting; package faults are not reported as source/output I/O errors.
 
 Name records contain index, nameId, platformId, encodingId, languageId, nullable languageTag and unmodified value. Source indexes may have gaps and are not array positions. Unknown name IDs, duplicates, whitespace and NULs survive JSON decoding unchanged.
 

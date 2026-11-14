@@ -11,7 +11,7 @@ Read names, attribution and declared license information from **TrueType/OpenTyp
 - **One metadata API across containers:** inspect individual fonts and collections through the same reader, retaining each face's original index.
 - **Useful results from damaged inputs:** preserve independently readable metadata, with per-table statuses and structured diagnostics that distinguish missing data from unreadable data.
 - **Traceable license evidence:** retain decoded name records and link every recognized license hint to its source record, including conflicting indications.
-- **Offline inspection with no third-party runtime dependencies:** the library uses .NET APIs; reading and license analysis make no network requests.
+- **Offline inspection:** the core reader has no third-party runtime dependencies; optional SPDX expression analysis uses the pinned offline Spdx.Expressions package.
 - **Automation through the same parser:** use the library or the CLI's versioned JSON reports, batch inputs, exit codes, resource limits and cooperative cancellation.
 
 These capabilities support font catalogs, attribution reviews and metadata collection for audit or SBOM pipelines. Font.Metadata supplies font facts and license evidence; the consuming application owns policy decisions and SBOM generation.
@@ -22,7 +22,7 @@ These capabilities support font catalogs, attribution reviews and metadata colle
 
 The core metadata readers and CLI inspection are implemented. Independent validation passed all 135 sample/operation checks on a 45-sample reviewed corpus, with scoped FontTools/OTS comparisons. A separate Windows robustness campaign passed 62 contract/boundary checks and observed no execution failures in 256 seeded mutations; the initial research cycle is complete with documented limitations. Exploratory Parse/Analyze/I/O measurements did not confirm a product regression or establish stable release thresholds. See [Testing](docs/testing.md#independent-validation) for the evaluated package, coverage and remaining limits.
 
-Current license analysis recognizes a documented set of identifiers, names and URLs. SPDX expression integration into font inspection and Unicode coverage are planned extensions. They are not part of the current API; preview release readiness does not depend on their completion.
+Legacy license analysis recognizes a documented set of identifiers, names and URLs. The optional `Font.Metadata.Spdx` adapter adds source-preserving expression analysis and CLI `--analyze-spdx`. It uses the published Spdx.Expressions 0.1.0 package; see [SPDX integration and local build](docs/spdx.md). Unicode coverage remains deferred.
 
 ## Use as a dotnet tool
 
@@ -36,24 +36,23 @@ font-metadata inspect Example.woff2 --format json --analyze-licenses
 font-metadata inspect One.ttf Two.woff2 --include-name-records
 ```
 
-Publication is separate from source builds; these instructions do not imply a public release is already available. To try the current source before publication, run from the repository root:
+Publication is separate from source builds; these instructions do not imply a public release is already available. For the current source, first [build and verify from public NuGet dependencies](docs/spdx.md#build-and-verification). Then use the verified tool package:
 
 ```shell
-dotnet pack Font.Metadata.Tool/Font.Metadata.Tool.csproj -c Release -o artifacts/local-feed
-dotnet tool install --tool-path artifacts/local-tool --add-source artifacts/local-feed Font.Metadata.Tool --version 0.1.0-dev
+dotnet tool install --tool-path artifacts/local-tool --add-source <verified-package-directory> Font.Metadata.Tool --version 0.1.0-dev
 ./artifacts/local-tool/font-metadata inspect Example.ttf --format json
 ```
 
-Replace the sample font paths with your files. The local build example uses the current default development version and a fresh tool directory. The tool package includes the library; installing the library package separately is unnecessary.
+Replace the sample font paths with your files. The local build example uses the current default development version and a fresh tool directory. The tool package includes the reader, adapter and SPDX runtime dependency; installing the library package separately is unnecessary.
 
 The tool accepts individual files, multiple files and binary stdin. Reports preserve partial metadata, section statuses and diagnostics. License analysis is opt-in; JSON has an explicit schema version and exit codes support automation. Directory enumeration and extraction of embedded fonts belong to the calling script or application.
 
 See [CLI recipes](docs/cli-recipes.md) for global/local installation, repository manifests, directory inventories, license evidence, JSON processing and CI. The [CLI reference](docs/cli.md) defines arguments, exit codes and output behavior; the [JSON Schema](docs/cli.schema.json) describes machine-readable reports.
 
-To run directly from source without installing a tool:
+After dependency restore, run directly from source without installing a tool:
 
 ```shell
-dotnet run --project Font.Metadata.Tool -- inspect Example.woff2 --format json --analyze-licenses
+dotnet run --project Font.Metadata.Tool --no-restore -- inspect Example.woff2 --format json --analyze-licenses
 ```
 
 ## Inspect with the library
@@ -152,9 +151,9 @@ The build uses a stable .NET 10 SDK selected by global.json.
 pwsh -File eng/verify.ps1
 ```
 
-This restores dependencies, builds the solution, runs NUnit and offline release-script tests, checks C# whitespace, creates local development packages and verifies a PackageReference consumer and an installed dotnet tool. These checks are distinct from the completed initial independent validation cycle; a new release candidate still requires its own review.
+This restores dependencies, builds the solution, runs NUnit and offline release-script tests, checks C# whitespace, creates local development packages and verifies a PackageReference consumer, an installed dotnet tool and a portable payload. These checks are distinct from the completed initial independent validation cycle; a new release candidate still requires its own review.
 
-Tagged releases publish the library and dotnet tool to NuGet.org and attach a portable CLI archive to GitHub Releases. Publication requires the setup and readiness review in [Releases](docs/release.md). Local verification does not publish anything.
+Tagged releases publish the reader, SPDX adapter and dotnet tool to NuGet.org and attach a portable CLI archive to GitHub Releases. Publication requires the setup and readiness review in [Releases](docs/release.md). Local verification does not publish anything.
 
 ## Documentation
 

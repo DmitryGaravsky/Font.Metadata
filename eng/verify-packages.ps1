@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 [CmdletBinding()]
-param([string] $Version)
+param([string] $Version, [string] $PackageDirectory)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = Split-Path $PSScriptRoot -Parent
@@ -14,8 +14,13 @@ function Invoke-DotNet([string[]] $Arguments) {
 Push-Location $root
 $originalPackages = $env:NUGET_PACKAGES
 try {
-    $feed = Join-Path $root "artifacts/packages/$Version"
+    $feed = if($PackageDirectory) { [IO.Path]::GetFullPath($PackageDirectory) } else {
+        Join-Path $root ("artifacts/packages/$Version/" + [Guid]::NewGuid().ToString('N'))
+    }
+    if(Test-Path -LiteralPath $feed) { throw 'Package output must be a new directory; never replace different bytes under the same version.' }
     Invoke-DotNet @('pack', 'Font.Metadata/Font.Metadata.csproj', '-c', 'Release',
+        '--no-build', '--no-restore', '--output', $feed, "-p:Version=$Version")
+    Invoke-DotNet @('pack', 'Font.Metadata.Spdx/Font.Metadata.Spdx.csproj', '-c', 'Release',
         '--no-build', '--no-restore', '--output', $feed, "-p:Version=$Version")
     Invoke-DotNet @('pack', 'Font.Metadata.Tool/Font.Metadata.Tool.csproj', '-c', 'Release',
         '--no-build', '--no-restore', '--output', $feed, "-p:Version=$Version")
@@ -38,7 +43,7 @@ try {
     }
     $expectedLicense = [IO.File]::ReadAllText((Join-Path $root 'LICENSE'))
     [xml] $buildProperties = Get-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Raw
-    foreach($id in @('Font.Metadata', 'Font.Metadata.Tool')) {
+    foreach($id in @('Font.Metadata', 'Font.Metadata.Spdx', 'Font.Metadata.Tool')) {
         $package = [IO.Compression.ZipFile]::OpenRead((Join-Path $feed "$id.$Version.nupkg"))
         try {
             $licenseEntry = $package.GetEntry('LICENSE')
@@ -65,7 +70,23 @@ try {
             }
         } finally { $package.Dispose() }
     }
-    Write-Host 'Author, repository, MIT license metadata and bundled license text verified for both packages.'
+    $adapter = [IO.Compression.ZipFile]::OpenRead((Join-Path $feed "Font.Metadata.Spdx.$Version.nupkg"))
+    try {
+        foreach($entry in @('lib/net10.0/Font.Metadata.Spdx.dll', 'lib/net10.0/Font.Metadata.Spdx.xml')) {
+            if($null -eq $adapter.GetEntry($entry)) { throw "Missing adapter package entry: $entry" }
+        }
+        $reader = [IO.StreamReader]::new($adapter.GetEntry('Font.Metadata.Spdx.nuspec').Open())
+        try { [xml] $spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        $dependencies = @($spec.package.metadata.dependencies.group.dependency)
+        [xml] $central = Get-Content -LiteralPath (Join-Path $root 'Directory.Packages.props') -Raw
+        $expectedRange = ($central.Project.ItemGroup.PackageVersion | Where-Object Include -EQ 'Spdx.Expressions').Version
+        if($dependencies.Count -ne 2 -or
+            ($dependencies | Where-Object id -EQ 'Spdx.Expressions').version -cne $expectedRange -or
+            @($dependencies | Where-Object id -EQ 'Font.Metadata').Count -ne 1) {
+            throw 'Unexpected adapter dependency closure or SPDX version range.'
+        }
+    } finally { $adapter.Dispose() }
+    Write-Host 'Author, repository, MIT license metadata, dependency closure and bundled license text verified for all three packages.'
     # Each run gets an isolated consumer and package cache, avoiding stale packages with the same dev version.
     $run = Join-Path $root ('artifacts/package-smoke/' + [Guid]::NewGuid().ToString('N'))
     $consumer = Join-Path $run 'consumer'
@@ -74,14 +95,28 @@ try {
     [IO.File]::WriteAllText((Join-Path $run 'Directory.Build.props'), '<Project />')
     [IO.File]::WriteAllText((Join-Path $run 'Directory.Build.targets'), '<Project />')
     [IO.File]::WriteAllText((Join-Path $run 'Directory.Packages.props'), '<Project />')
-    $escapedFeed = [Security.SecurityElement]::Escape($feed)
+    $consumerFeed = Join-Path $run 'feed'
+    New-Item -ItemType Directory -Path $consumerFeed -Force | Out-Null
+    foreach($id in @('Font.Metadata', 'Font.Metadata.Spdx', 'Font.Metadata.Tool')) {
+        Copy-Item -LiteralPath (Join-Path $feed "$id.$Version.nupkg") -Destination $consumerFeed
+    }
+    # Use the exact package selected by restore, including custom global package directories.
+    $assets = Get-Content -LiteralPath (Join-Path $root 'Font.Metadata.Spdx/obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
+    $spdxVersion = $expectedRange.Trim('[', ']')
+    $packageCandidates = @($assets.packageFolders.Keys | ForEach-Object {
+        Join-Path $_ "spdx.expressions/$spdxVersion/spdx.expressions.$spdxVersion.nupkg"
+    } | Where-Object { Test-Path -LiteralPath $_ })
+    if($packageCandidates.Count -ne 1) { throw 'Expected one restored SPDX package matching the central dependency.' }
+    $SpdxPackage = $packageCandidates[0]
+    Copy-Item -LiteralPath $SpdxPackage -Destination $consumerFeed
+    $escapedFeed = [Security.SecurityElement]::Escape($consumerFeed)
     $config = Join-Path $run 'NuGet.Config'
     [IO.File]::WriteAllText($config, "<configuration><packageSources><clear /><add key='local' value='$escapedFeed' /></packageSources></configuration>")
     $project = Join-Path $consumer 'Consumer.csproj'
     [IO.File]::WriteAllText($project, @"
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-  <ItemGroup><PackageReference Include="Font.Metadata" Version="$version" /></ItemGroup>
+  <ItemGroup><PackageReference Include="Font.Metadata.Spdx" Version="[$version]" /></ItemGroup>
 </Project>
 "@)
     [IO.File]::WriteAllText((Join-Path $consumer 'Program.cs'), @'
@@ -172,6 +207,16 @@ FontLicenseAnalysis emptyAnalysis = FontLicenseAnalyzer.Analyze(font.Faces[0]);
 if(!emptyAnalysis.IsSourceComplete || emptyAnalysis.Hints.Count != 0)
     throw new Exception(LicenseAnalysisFailureMessage);
 Console.WriteLine(LicenseAnalysisVerifiedMessage);
+const string SpdxFailureMessage = "Packaged SPDX adapter lost native results or source evidence.";
+var registry = Spdx.Expressions.SpdxLicenseRegistry.Default;
+var spdx = FontSpdxAnalyzer.Analyze(completeFace, registry);
+if(spdx.Declarations.Count != 1 || spdx.Declarations[0].ExpressionText != "MIT" ||
+    spdx.Declarations[0].ParseResult.Status != Spdx.Expressions.SpdxParseStatus.Success ||
+    !ReferenceEquals(spdx.Declarations[0].SourceRecord, completeFace.NameRecords[0]) ||
+    spdx.Declarations[0].ValidationResult.IdentifierOccurrences[0].CanonicalIdentifier != "MIT" ||
+    !spdx.IsSourceComplete || !spdx.IsAnalysisComplete || registry.Identity.LicenseListVersion != "3.29.0")
+    throw new Exception(SpdxFailureMessage);
+Console.WriteLine(typeof(Spdx.Expressions.SpdxLicenseRegistry).Assembly.Location);
 
 // Web-container consumers compile the additive API and exercise real packaged readers.
 const string WebContractFailureMessage = "Packaged web-font metadata contract failed.";
@@ -315,6 +360,28 @@ sealed class ChunkedInput : System.IO.MemoryStream {
     foreach($strictValidation in @('false', 'true')) {
         Invoke-DotNet @('run', '--project', $project, '-c', 'Release', '--no-build', '--no-restore', '--', $Version, $strictValidation)
     }
+    $dependency = [IO.Compression.ZipFile]::OpenRead($SpdxPackage)
+    try {
+        $assemblyEntry = $dependency.GetEntry('lib/net10.0/Spdx.Expressions.dll')
+        $expectedAssembly = Join-Path $run 'Spdx.Expressions.dll'
+        [IO.Compression.ZipFileExtensions]::ExtractToFile($assemblyEntry, $expectedAssembly)
+        $expectedHash = (Get-FileHash -LiteralPath $expectedAssembly).Hash
+        if((Get-FileHash -LiteralPath (Join-Path $consumer 'bin/Release/net10.0/Spdx.Expressions.dll')).Hash -cne $expectedHash) {
+            throw 'The isolated consumer loaded a different SPDX assembly.'
+        }
+        $toolArchive = [IO.Compression.ZipFile]::OpenRead((Join-Path $feed "Font.Metadata.Tool.$Version.nupkg"))
+        try {
+            foreach($notice in @('LICENSE', 'THIRD-PARTY-NOTICES.md', 'data/UPSTREAM-README.md', 'data/UPSTREAM-XML-README.md')) {
+                $reader = [IO.StreamReader]::new($dependency.GetEntry($notice).Open())
+                try { $expected = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                $entry = $toolArchive.GetEntry('tools/net10.0/any/notices/Spdx.Expressions/' + [IO.Path]::GetFileName($notice))
+                if($null -eq $entry) { throw "Missing bundled SPDX notice: $notice" }
+                $reader = [IO.StreamReader]::new($entry.Open())
+                try { $actual = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                if($actual -cne $expected) { throw "Bundled SPDX notice changed: $notice" }
+            }
+        } finally { $toolArchive.Dispose() }
+    } finally { $dependency.Dispose() }
     $toolPath = Join-Path $run 'tool'
     Invoke-DotNet @('tool', 'install', 'Font.Metadata.Tool', '--version', $version,
         '--tool-path', $toolPath, '--configfile', $config)
@@ -329,7 +396,49 @@ sealed class ChunkedInput : System.IO.MemoryStream {
         throw ('Installed tool version does not match {0}.' -f $version)
     }
     & (Join-Path $PSScriptRoot 'test-cli-verification.ps1') -Executable $executable -WorkDirectory (Join-Path $run 'cli')
-    Write-Host 'PackageReference consumer and installed dotnet tool checks passed.'
+    # Build the release ZIP once, then verify the exact archive that prepare-release copies.
+    $payload = Join-Path $run 'portable-payload'
+    New-Item -ItemType Directory -Path $payload -Force | Out-Null
+    $toolArchive = [IO.Compression.ZipFile]::OpenRead((Join-Path $feed "Font.Metadata.Tool.$Version.nupkg"))
+    try {
+        foreach($name in @('LICENSE', 'README.md')) {
+            $entry = $toolArchive.GetEntry($name)
+            if($null -eq $entry) { throw "Tool package is missing $name." }
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $payload $name))
+        }
+        $prefix = 'tools/net10.0/any/'
+        foreach($entry in $toolArchive.Entries) {
+            if(-not $entry.FullName.StartsWith($prefix, [StringComparison]::Ordinal) -or -not $entry.Name) { continue }
+            $relative = $entry.FullName.Substring($prefix.Length)
+            if($relative -eq 'DotnetToolSettings.xml') { continue }
+            $destination = [IO.Path]::GetFullPath((Join-Path $payload $relative))
+            if(-not $destination.StartsWith($payload + [IO.Path]::DirectorySeparatorChar, [StringComparison]::Ordinal)) {
+                throw 'Portable entry escapes its payload.'
+            }
+            New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination)
+        }
+    } finally { $toolArchive.Dispose() }
+    $usage = "Font.Metadata.Tool $Version`nRequires the .NET 10 runtime.`nRun: dotnet Font.Metadata.Tool.dll --help`n"
+    [IO.File]::WriteAllText((Join-Path $payload 'RUNNING.txt'), $usage)
+    $portableZip = Join-Path $feed "font-metadata-$Version-portable.zip"
+    [IO.Compression.ZipFile]::CreateFromDirectory($payload, $portableZip)
+    $portable = Join-Path $run 'portable'
+    [IO.Compression.ZipFile]::ExtractToDirectory($portableZip, $portable)
+    if((Get-FileHash -LiteralPath (Join-Path $portable 'Spdx.Expressions.dll')).Hash -cne $expectedHash) {
+        throw 'Portable SPDX assembly differs from the restored dependency.'
+    }
+    if([IO.File]::ReadAllText((Join-Path $portable 'LICENSE')) -cne $expectedLicense) {
+        throw 'Portable CLI license text mismatch.'
+    }
+    $entryPoint = Join-Path $portable 'Font.Metadata.Tool.dll'
+    $help = & dotnet $entryPoint --help
+    if($LASTEXITCODE -ne 0 -or ($help -join "`n") -notmatch 'Usage: font-metadata') { throw 'Portable CLI help failed.' }
+    $actual = & dotnet $entryPoint --version
+    if($LASTEXITCODE -ne 0 -or ($actual.Trim() -split '\+')[0] -cne $Version) { throw 'Portable CLI version mismatch.' }
+    & (Join-Path $PSScriptRoot 'test-cli-verification.ps1') -Executable 'dotnet' -Prefix @($entryPoint) -WorkDirectory (Join-Path $run 'portable-cli')
+    Write-Host 'PackageReference consumer, installed dotnet tool and portable checks passed.'
+    Write-Host "Verified packages: $feed"
 } finally {
     $env:NUGET_PACKAGES = $originalPackages
     Pop-Location
