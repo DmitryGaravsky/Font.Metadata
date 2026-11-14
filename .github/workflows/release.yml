@@ -104,12 +104,12 @@ jobs:
         id: login
         with:
           user: ${{ vars.NUGET_USER }}
-      - name: Publish library and dotnet tool
+      - name: Publish reader, SPDX adapter and dotnet tool
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: |
-          foreach($id in @('Font.Metadata', 'Font.Metadata.Tool')) {
+          foreach($id in @('Font.Metadata', 'Font.Metadata.Spdx', 'Font.Metadata.Tool')) {
             dotnet nuget push "artifacts/publish/$id.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
             if($LASTEXITCODE -ne 0) { throw "NuGet publication failed for $id" }
           }

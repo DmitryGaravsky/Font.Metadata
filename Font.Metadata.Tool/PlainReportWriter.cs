@@ -4,14 +4,19 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using Spdx.Expressions;
 
 namespace Fonts.Metadata.Tool {
     internal sealed class PlainReportWriter : ReportWriter {
+        const string SpdxNotice = "SPDX expressions are source evidence, not a license decision; references remain unresolved.";
         const string LicenseNotice = "License hints are evidence, not a license decision; empty hints do not prove absence of a license.";
+        readonly SpdxLicenseRegistry? registry;
+        readonly FontSpdxOptions spdxOptions = new();
         readonly StreamWriter writer;
         bool first = true;
 
-        internal PlainReportWriter(Stream output, CommandOptions options, CancellationToken token) : base(options, token) {
+        internal PlainReportWriter(Stream output, CommandOptions options, CancellationToken token, SpdxLicenseRegistry? registry = null) : base(options, token) {
+            this.registry = registry;
             writer = new StreamWriter(output, new UTF8Encoding(false), leaveOpen: true);
         }
         internal static string Escape(string? value) {
@@ -20,6 +25,10 @@ namespace Fonts.Metadata.Tool {
         internal override void Begin() {
             if(Options.AnalyzeLicenses)
                 writer.WriteLine(LicenseNotice);
+            if(Options.AnalyzeSpdx) {
+                writer.WriteLine(SpdxNotice);
+                writer.WriteLine($"SPDX catalogue: {Escape(registry!.Identity.LicenseListVersion)}; profile font-name13-v1 / SPDX-2.3.1");
+            }
         }
         internal override void Write(SourceResult result) {
             Token.ThrowIfCancellationRequested();
@@ -103,7 +112,39 @@ namespace Fonts.Metadata.Tool {
                         WriteRecord(hint.SourceRecord, "      ");
                     }
                 }
+                if(Options.AnalyzeSpdx)
+                    WriteSpdx(FontSpdxAnalyzer.Analyze(face, registry!, spdxOptions, Token));
             }
+        }
+        void WriteSpdx(FontSpdxAnalysis analysis) {
+            writer.WriteLine("  SPDX analysis:");
+            writer.WriteLine($"    Source complete: {analysis.IsSourceComplete.ToString().ToLowerInvariant()}");
+            writer.WriteLine($"    Analysis complete: {analysis.IsAnalysisComplete.ToString().ToLowerInvariant()}");
+            writer.WriteLine($"    Adapter diagnostics truncated: {analysis.DiagnosticsTruncated.ToString().ToLowerInvariant()}");
+            if(analysis.Declarations.Count == 0)
+                writer.WriteLine("    No admitted SPDX declarations");
+            foreach(var declaration in analysis.Declarations) {
+                Token.ThrowIfCancellationRequested();
+                writer.WriteLine($"    Expression: {Escape(declaration.ExpressionText)}, rule {declaration.RuleId}, parse {SpdxReportValues.Status(declaration.ParseResult.Status)}");
+                writer.WriteLine($"      Source range (UTF-16): {Number(declaration.SourceStart)} + {Number(declaration.SourceLength)}");
+                WriteRecord(declaration.SourceRecord, "      ");
+                foreach(var diagnostic in declaration.ParseResult.Diagnostics)
+                    WriteSpdxDiagnostic(diagnostic);
+                if(declaration.ValidationResult is { } validation) {
+                    writer.WriteLine($"      Identifier errors: {validation.HasIdentifierErrors.ToString().ToLowerInvariant()}, unresolved references: {validation.HasUnresolvedReferences.ToString().ToLowerInvariant()}, diagnostics truncated: {validation.DiagnosticsTruncated.ToString().ToLowerInvariant()}");
+                    foreach(var diagnostic in validation.Diagnostics)
+                        WriteSpdxDiagnostic(diagnostic);
+                }
+            }
+            foreach(var diagnostic in analysis.Diagnostics) {
+                Token.ThrowIfCancellationRequested();
+                writer.WriteLine($"    {diagnostic.Code}: {Escape(diagnostic.Message)}");
+                WriteRecord(diagnostic.SourceRecord, "      ");
+            }
+        }
+        void WriteSpdxDiagnostic(SpdxDiagnostic diagnostic) {
+            Token.ThrowIfCancellationRequested();
+            writer.WriteLine($"      {SpdxReportValues.Severity(diagnostic.Severity)} {Escape(diagnostic.Code)} at {Number(diagnostic.Span.Start)} + {Number(diagnostic.Span.Length)}: {Escape(diagnostic.Message)}");
         }
         void WriteRecord(FontMetadata.NameRecord record, string indent) {
             Token.ThrowIfCancellationRequested();

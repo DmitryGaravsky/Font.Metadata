@@ -1,6 +1,6 @@
 # Architecture
 
-The repository contains a .NET 10 metadata library, a CLI and two NUnit test projects. The library implements SFNT/TTC, WOFF, WOFF2 and EOT reading. The CLI exposes inspect, plain/JSON reports, binary stdin and optional license evidence. License evidence analysis is an independent operation on decoded records.
+The repository contains a .NET 10 metadata library, an optional SPDX adapter, a CLI and three NUnit test projects. The library implements SFNT/TTC, WOFF, WOFF2 and EOT reading. The CLI exposes inspect, plain/JSON reports, binary stdin and optional license evidence. License evidence analysis is an independent operation on decoded records.
 
 ## Domain model
 
@@ -50,6 +50,8 @@ Font.Metadata/
 ├── Directory.Packages.props        central dependency versions
 ├── global.json                     .NET SDK selection
 ├── NuGet.Config                    public dependency source
+├── Font.Metadata.Spdx/             optional expression analyzer and immutable results
+├── Font.Metadata.Spdx.Tests/       source, limit and native outcome contracts
 ├── Font.Metadata/
 │   ├── FontMetadata.cs                  immutable metadata and nested models
 │   ├── FontFormat.cs                    source container format
@@ -106,18 +108,20 @@ Source folders group responsibilities without defining additional public namespa
 ## Dependencies
 
 ```text
- Font.Metadata.Tests            Font.Metadata.Tool.Tests
-          │                              │
-          │ ProjectReference             │ build reference and child process
-          ▼                              ▼
- Font.Metadata ◀────────────── Font.Metadata.Tool
-                         ProjectReference
+ Font.Metadata.Tool → Font.Metadata.Spdx → Font.Metadata
+         │                    │
+         └──────────┬─────────┘
+                    ▼
+          Spdx.Expressions (NuGet)
 
- Local library nupkg ──→ isolated PackageReference consumer
- Local tool nupkg ─────→ isolated tool-path installation
+ Font.Metadata.Tests      → Font.Metadata
+ Font.Metadata.Spdx.Tests → Font.Metadata.Spdx
+ Font.Metadata.Tool.Tests → Font.Metadata.Tool
 ```
 
-The library has no application-layer dependencies, package dependencies or project references. It uses the .NET 10 runtime, including its code-page provider and zlib/Brotli codecs. MTX is decoded in managed code without native font APIs. The tool owns console behavior. Tests exercise public contracts. Deterministic cancellation checks use InternalsVisibleTo for name selection and operation-local cancellation checkpoints; no public test hooks or global switches are introduced.
+Arrows point from each project to its dependency. The tool also references Spdx.Expressions directly to locate and bundle its notices. Package verification consumes all three local nupkg files through an isolated consumer, an installed tool and the portable CLI.
+
+The core reader has no application-layer dependencies, package dependencies or project references. It uses the .NET 10 runtime, including its code-page provider and zlib/Brotli codecs. MTX is decoded in managed code without native font APIs. The tool owns console behavior. Tests exercise public contracts. Reader cancellation checks use InternalsVisibleTo for name selection and operation-local cancellation checkpoints; no public test hooks or global switches are introduced.
 
 ## Reading flow
 
@@ -205,7 +209,7 @@ Known expressions, exceptions and unknown variants fail whole-declaration matchi
 
 ## Runtime and validation boundaries
 
-All four projects target net10.0. Repository settings, sources and dependencies are self-contained. No external consumer projects, source links or private feeds are required.
+All six projects target net10.0. The reader is self-contained. The optional adapter uses a pinned PackageReference; the published Spdx.Expressions 0.1.0 package is restored from nuget.org for local and CI builds. No product project references an external checkout. See [SPDX build](spdx.md#build-and-verification).
 
 Complete describes supported metadata extraction, not comprehensive font validity. See [Formats](formats.md) for exactly what is checked and [Testing](testing.md) for verification.
 

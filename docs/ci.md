@@ -14,7 +14,7 @@ Local nupkg packing ──→ isolated consumer ──→ tool installation
                                      Upload reports and packages
 ```
 
-The library, tool and both test projects use net10.0 on every runner. Each job has a timeout and failures in one operating system do not cancel the others.
+The reader, adapter, tool and three test projects use net10.0 on every runner. Each job has a timeout and failures in one operating system do not cancel the others.
 
 TRX reports are uploaded even when a later check fails. Local development packages are uploaded from the successful Linux job. Temporary caches and installed tools are not uploaded.
 
@@ -27,3 +27,7 @@ Hosted results must be established from a retained workflow run for the relevant
 Package/tool verification checks the documented CLI JSON examples against the local schema. It does not automatically establish that all Markdown links, C# snippets, capability descriptions or prose contracts are current. Those require the [documentation review](../CONTRIBUTING.md#formatting-and-documentation). Repository-wide link/snippet and API-documentation drift checks are not currently implemented; they are separate CI work, not a guarantee provided by this workflow.
 
 Workflow action usage follows the maintainers' documentation: [checkout](https://github.com/actions/checkout), [setup-dotnet](https://github.com/actions/setup-dotnet), [upload-artifact](https://github.com/actions/upload-artifact).
+
+## Published SPDX dependency
+
+Local, build/test CI and tag-release verification restore the exact Spdx.Expressions 0.1.0 package from nuget.org through the repository configuration. No additional checkout or producer build is required. Package acceptance uses the restored artifact in a closed local feed with fresh consumer caches and checks DLL identity, notices, installed-tool behavior and the portable payload. See [dependency verification](spdx.md#build-and-verification).

@@ -11,7 +11,11 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Font.Metadata.Tool.Tests" />
-    <ProjectReference Include="../Font.Metadata/Font.Metadata.csproj" />
+    <ProjectReference Include="../Font.Metadata.Spdx/Font.Metadata.Spdx.csproj" />
+    <PackageReference Include="Spdx.Expressions" GeneratePathProperty="true" />
+    <None Include="$(PkgSpdx_Expressions)/LICENSE" Link="notices/Spdx.Expressions/LICENSE" CopyToOutputDirectory="PreserveNewest" Pack="false" />
+    <None Include="$(PkgSpdx_Expressions)/THIRD-PARTY-NOTICES.md" Link="notices/Spdx.Expressions/THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" Pack="false" />
+    <None Include="$(PkgSpdx_Expressions)/data/UPSTREAM*.md" Link="notices/Spdx.Expressions/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Pack="false" />
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
   </ItemGroup>

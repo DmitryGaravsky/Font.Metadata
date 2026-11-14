@@ -32,10 +32,10 @@ Read only what is relevant to the change. Source code and tests establish implem
 
 ## Architecture and API
 
-- Keep the solution and all four project directories at the repository root. Shared test settings belong in eng/Tests.props; do not introduce src/tests container directories.
+- Keep the solution and all six project directories at the repository root. Shared test settings belong in eng/Tests.props; do not introduce src/tests container directories.
 - Target net10.0 only for the library, tool and tests. Use a stable .NET 10 SDK; do not introduce older framework targets or compatibility dependencies.
 - Keep the library independent of the CLI, external scanners, catalogs and SBOM models.
-- Namespace is Fonts.Metadata. Package IDs are Font.Metadata and Font.Metadata.Tool. Metadata models nest one level under FontMetadata: Face, NameRecord and EotHeader.
+- Namespace is Fonts.Metadata. Package IDs are Font.Metadata, Font.Metadata.Spdx and Font.Metadata.Tool. The optional SPDX adapter depends on Spdx.Expressions through an exact PackageReference; the reader remains independent. Metadata models nest one level under FontMetadata: Face, NameRecord and EotHeader.
 - Group library sources by responsibility: Reading for operations/options/limits/exceptions, Reading/Internal for parser implementation, Inspection for outcomes/statuses, Diagnostics for diagnostic contracts, and Licensing for evidence analysis (with internal matching helpers under Licensing/Internal). Keep FontMetadata and FontFormat at the library root. Folder names do not change namespaces: public types stay in Fonts.Metadata and parser helpers in Fonts.Metadata.Internal.
 - Keep operations, options and diagnostics independently usable. Do not nest every type in FontMetadata.
 - Public members must serve independent consumers. Keep parsers, buffers, budgets and orchestration internal. Do not widen visibility just for tests; use narrow InternalsVisibleTo access when needed.

@@ -4,12 +4,13 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Spdx.Expressions;
 
 namespace Fonts.Metadata.Tool {
     internal static class Command {
         internal const string Usage = "Usage: font-metadata inspect <path> [<path> ...] [options]\n       font-metadata inspect - [options]\n       font-metadata --help | --version";
         const string Help = "Font.Metadata.Tool\n" + Usage +
-            "\nOptions: --format plain|json (default: plain), --include-name-records, --analyze-licenses, --max-input-bytes <bytes>\n" +
+            "\nOptions: --format plain|json (default: plain), --include-name-records, --analyze-licenses, --analyze-spdx, --max-input-bytes <bytes>\n" +
             "Use -- before literal paths beginning with '-'. Stdin '-' must be the only source.\n" +
             "Reads SFNT/TTC, WOFF, WOFF2 and EOT. No embedded search or directory traversal.\n" +
             "Input defaults to 128 MiB; additional library decoding limits apply (see docs/cli.md).\n" +
@@ -21,19 +22,25 @@ namespace Fonts.Metadata.Tool {
         const int BufferSize = 81920;
 
         internal static Task<int> RunAsync(string[] args, TextWriter error, CancellationToken token) {
-            return RunAsync(args, options => ExecuteConsoleAsync(options, token), error, token);
+            return RunAsync(args, (options, registry) => ExecuteConsoleAsync(options, registry, token), error, token);
         }
         internal static Task<int> RunAsync(string[] args, Stream input, Stream output, TextWriter error, CancellationToken token) {
-            return RunAsync(args, options => ExecuteAsync(options, input, output, token), error, token);
+            return RunAsync(args, (options, registry) => ExecuteAsync(options, registry, input, output, token), error, token);
         }
-        static async Task<int> RunAsync(string[] args, Func<CommandOptions, Task<int>> execute, TextWriter error, CancellationToken token) {
+        static async Task<int> RunAsync(string[] args, Func<CommandOptions, SpdxLicenseRegistry?, Task<int>> execute, TextWriter error, CancellationToken token) {
             if(!CommandOptions.TryParse(args, out var options)) {
                 WriteError(error, InvalidArguments + "\n" + Usage);
                 return 2;
             }
+            if(token.IsCancellationRequested) {
+                WriteError(error, Cancelled);
+                return 130;
+            }
+            // Packaging faults must not be classified as source or output I/O failures.
+            var registry = options.AnalyzeSpdx ? SpdxLicenseRegistry.Default : null;
             try {
                 token.ThrowIfCancellationRequested();
-                int exitCode = await execute(options);
+                int exitCode = await execute(options, registry);
                 token.ThrowIfCancellationRequested();
                 return exitCode;
             }
@@ -48,13 +55,13 @@ namespace Fonts.Metadata.Tool {
                 return token.IsCancellationRequested ? 130 : 3;
             }
         }
-        static async Task<int> ExecuteConsoleAsync(CommandOptions options, CancellationToken token) {
+        static async Task<int> ExecuteConsoleAsync(CommandOptions options, SpdxLicenseRegistry? registry, CancellationToken token) {
             using(var input = Console.OpenStandardInput())
             using(var output = StandardOutput.Open()) {
-                return await ExecuteAsync(options, input, output, token);
+                return await ExecuteAsync(options, registry, input, output, token);
             }
         }
-        static async Task<int> ExecuteAsync(CommandOptions options, Stream input, Stream output, CancellationToken token) {
+        static async Task<int> ExecuteAsync(CommandOptions options, SpdxLicenseRegistry? registry, Stream input, Stream output, CancellationToken token) {
             if(options.Help || options.Version) {
                 string? version = typeof(Command).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
                 byte[] text = Encoding.UTF8.GetBytes((options.Help ? Help : version) + Environment.NewLine);
@@ -65,7 +72,7 @@ namespace Fonts.Metadata.Tool {
             var limits = new FontReadLimits { MaxInputBytes = options.MaxInputBytes };
             var readOptions = new FontReadOptions { Limits = limits };
             using(ReportWriter writer = options.Json ?
-                new JsonReportWriter(output, options, token) : new PlainReportWriter(output, options, token)) {
+                new JsonReportWriter(output, options, token, registry) : new PlainReportWriter(output, options, token, registry)) {
                 writer.Begin();
                 bool incomplete = false, ioError = false;
                 foreach(var source in options.Sources) {

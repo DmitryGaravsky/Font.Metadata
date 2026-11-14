@@ -1,6 +1,6 @@
 # API
 
-Package: `Font.Metadata`. Namespace: `Fonts.Metadata`. Target: `net10.0`. All public types use this namespace, including types whose source files are grouped under Reading, Inspection, Diagnostics and Licensing; no additional namespace imports are needed.
+Package: `Font.Metadata`. Namespace: `Fonts.Metadata`. Target: `net10.0`. All public types in the core package use this namespace, including types whose source files are grouped under Reading, Inspection, Diagnostics and Licensing; no additional namespace imports are needed.
 
 ## Public types
 
@@ -208,3 +208,7 @@ foreach(FontMetadata.Face face in inspection.Faces) {
 `FontMetadataReader.IsFormatSupported(format)` reports implemented container readers: `Sfnt`, `Collection`, `Woff`, `Woff2` and `Eot`. `HasFontExtension(path)` recognizes .ttf, .otf, .ttc, .otc, .woff, .woff2 and .eot case-insensitively. An extension is not evidence of valid or supported content.
 
 There is no embedded-font search API. The [CLI](cli.md) exposes inspection and optional license analysis. License strings and embedding flags are source facts; they do not establish permission to use or redistribute a font.
+
+## SPDX expression analysis
+
+The optional `Font.Metadata.Spdx` package adds `FontSpdxAnalyzer`, `FontSpdxOptions`, `FontSpdxAnalysis`, `FontSpdxDeclaration` and `FontSpdxDiagnostic` in `Fonts.Metadata`. It reuses native AST and validation types from the `Spdx.Expressions` namespace; import that namespace when supplying the registry or parser/validation options. See [the complete API, recognition and limit contract](spdx.md). The reader and legacy hint API remain independent.

@@ -14,6 +14,7 @@ namespace Fonts.Metadata.Tool {
         internal bool Json { get; init; }
         internal bool IncludeNameRecords { get; init; }
         internal bool AnalyzeLicenses { get; init; }
+        internal bool AnalyzeSpdx { get; init; }
         internal int MaxInputBytes { get; init; } = new FontReadLimits().MaxInputBytes;
         internal IReadOnlyList<InputSource> Sources { get; init; } = ReadOnlyCollection<InputSource>.Empty;
 
@@ -30,7 +31,7 @@ namespace Fonts.Metadata.Tool {
             }
             if(args.Length == 0 || args[0] != "inspect")
                 return false;
-            bool literal = false, json = false, records = false, licenses = false;
+            bool literal = false, json = false, records = false, licenses = false, spdx = false;
             int maxInput = options.MaxInputBytes;
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var sources = new List<InputSource>();
@@ -50,6 +51,9 @@ namespace Fonts.Metadata.Tool {
                     switch(argument) {
                         case "--include-name-records":
                             records = true;
+                            break;
+                        case "--analyze-spdx":
+                            spdx = true;
                             break;
                         case "--analyze-licenses":
                             licenses = true;
@@ -78,6 +82,7 @@ namespace Fonts.Metadata.Tool {
                 Json = json,
                 IncludeNameRecords = records,
                 AnalyzeLicenses = licenses,
+                AnalyzeSpdx = spdx,
                 MaxInputBytes = maxInput,
                 Sources = sources.AsReadOnly()
             };

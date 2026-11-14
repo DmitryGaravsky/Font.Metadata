@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../eng/Tests.props" />
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Font.Metadata.Spdx/Font.Metadata.Spdx.csproj" />
+    <Compile Include="../Font.Metadata.Tests/FontFixtures.cs" Link="Fixtures/FontFixtures.cs" />
+    <Compile Include="../Font.Metadata.Tests/WebFontFixtures.cs" Link="Fixtures/WebFontFixtures.cs" />
+  </ItemGroup>
+</Project>
