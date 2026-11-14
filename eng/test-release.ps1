@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 Set-Variable -Name MockArguments -Option Constant -Value @{
     Operation = 1; UploadPath = 3; DownloadName = 4; DownloadDirectory = 6
 }
-Set-Variable -Name ExpectedReleaseFileCount -Option Constant -Value 4
+Set-Variable -Name ExpectedReleaseFileCount -Option Constant -Value 5
 Set-Variable -Name MockJsonDepth -Option Constant -Value 4
 $getVersion = Join-Path $PSScriptRoot 'get-version.ps1'
 foreach($version in @('0.1.0', '1.2.3-preview.1', '1.2.3-rc.0', '10.0.0')) {
@@ -23,7 +23,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $fixture = Join-Path $root ('artifacts/release-tests/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture -Force | Out-Null
 $version = '1.2.3-preview.1'
-foreach($id in @('Font.Metadata', 'Font.Metadata.Tool')) {
+foreach($id in @('Font.Metadata', 'Font.Metadata.Spdx', 'Font.Metadata.Tool')) {
     $archive = [IO.Compression.ZipFile]::Open((Join-Path $fixture "$id.$version.nupkg"), 'Create')
     try {
         $writer = [IO.StreamWriter]::new($archive.CreateEntry("$id.nuspec").Open())

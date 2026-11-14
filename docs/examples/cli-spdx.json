@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "options": {
+    "includeNameRecords": false,
+    "analyzeLicenses": false,
+    "maxInputBytes": 134217728,
+    "analyzeSpdx": true
+  },
+  "spdxContext": {
+    "recognitionProfile": "font-name13-v1",
+    "syntaxProfile": "SPDX-2.3.1",
+    "registry": {
+      "licenseListVersion": "3.29.0",
+      "licensesSha256": "47d1cc681abe31166b342b6cc4aab13a6ba8ea5c48794697fe3bf8b1dbaf509a",
+      "exceptionsSha256": "59ee7c150de521d635cbf9367b8cf543b8da6781ea3ac1c073d305524f84ada2"
+    },
+    "options": {
+      "maxSourceRecords": 4096,
+      "maxTotalSourceCharacters": 1048576,
+      "maxDeclarations": 256,
+      "maxDiagnostics": 128,
+      "parseOptions": {
+        "maxInputLength": 65536,
+        "maxIdentifierLength": 256,
+        "maxTokens": 16384,
+        "maxNodes": 8192,
+        "maxParenthesisDepth": 64
+      },
+      "validationOptions": {
+        "maxDiagnostics": 128
+      }
+    }
+  },
+  "results": [
+    {
+      "source": {
+        "kind": "stdin",
+        "path": null
+      },
+      "status": "complete",
+      "metadata": {
+        "format": "sfnt",
+        "eotHeaderStatus": "missing",
+        "eot": null,
+        "faces": [
+          {
+            "index": 0,
+            "source": "container",
+            "sfntFlavor": 65536,
+            "nameTableStatus": "complete",
+            "os2TableStatus": "missing",
+            "vendorId": null,
+            "embeddingPermissions": null,
+            "familyName": null,
+            "subfamilyName": null,
+            "fullName": null,
+            "postScriptName": null,
+            "version": null,
+            "copyright": null,
+            "trademark": null,
+            "manufacturer": null,
+            "designer": null,
+            "description": null,
+            "vendorUrl": null,
+            "designerUrl": null,
+            "licenseDescription": "SPDX-License-Identifier: MIT OR Apache-2.0",
+            "licenseUrl": null,
+            "spdxAnalysis": {
+              "isSourceComplete": true,
+              "isAnalysisComplete": true,
+              "diagnosticsTruncated": false,
+              "declarations": [
+                {
+                  "ruleId": "FSI001",
+                  "sourceRecord": {
+                    "index": 0,
+                    "nameId": 13,
+                    "platformId": 3,
+                    "encodingId": 1,
+                    "languageId": 1033,
+                    "languageTag": null,
+                    "value": "  SPDX-License-Identifier: MIT OR Apache-2.0  "
+                  },
+                  "sourceStart": 27,
+                  "sourceLength": 17,
+                  "expressionText": "MIT OR Apache-2.0",
+                  "parseStatus": "success",
+                  "parseDiagnostics": [],
+                  "validation": {
+                    "hasIdentifierErrors": false,
+                    "hasUnresolvedReferences": false,
+                    "diagnosticsTruncated": false,
+                    "identifierOccurrences": [
+                      {
+                        "identifier": "MIT",
+                        "span": {
+                          "start": 0,
+                          "length": 3
+                        },
+                        "role": "license",
+                        "lookupStatus": "known",
+                        "canonicalIdentifier": "MIT",
+                        "isDeprecated": false
+                      },
+                      {
+                        "identifier": "Apache-2.0",
+                        "span": {
+                          "start": 7,
+                          "length": 10
+                        },
+                        "role": "license",
+                        "lookupStatus": "known",
+                        "canonicalIdentifier": "Apache-2.0",
+                        "isDeprecated": false
+                      }
+                    ],
+                    "references": [],
+                    "diagnostics": []
+                  }
+                }
+              ],
+              "diagnostics": []
+            }
+          }
+        ]
+      },
+      "diagnostics": []
+    }
+  ]
+}

@@ -1,15 +1,19 @@
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using Spdx.Expressions;
 
 namespace Fonts.Metadata.Tool {
-    internal sealed class JsonReportWriter : ReportWriter {
+    internal sealed partial class JsonReportWriter : ReportWriter {
+        readonly SpdxLicenseRegistry? registry;
+        readonly FontSpdxOptions spdxOptions = new();
         readonly Utf8JsonWriter writer;
         readonly Stream output;
         const int FlushThreshold = 16384;
 
-        internal JsonReportWriter(Stream output, CommandOptions options, CancellationToken token) : base(options, token) {
+        internal JsonReportWriter(Stream output, CommandOptions options, CancellationToken token, SpdxLicenseRegistry? registry = null) : base(options, token) {
             this.output = output;
+            this.registry = registry;
             writer = new Utf8JsonWriter(output, new JsonWriterOptions { Indented = true });
         }
         internal override void Begin() {
@@ -19,7 +23,11 @@ namespace Fonts.Metadata.Tool {
             writer.WriteBoolean("includeNameRecords", Options.IncludeNameRecords);
             writer.WriteBoolean("analyzeLicenses", Options.AnalyzeLicenses);
             writer.WriteNumber("maxInputBytes", Options.MaxInputBytes);
+            if(Options.AnalyzeSpdx)
+                writer.WriteBoolean("analyzeSpdx", true);
             writer.WriteEndObject();
+            if(Options.AnalyzeSpdx)
+                WriteSpdxContext();
             writer.WriteStartArray("results");
             writer.Flush();
         }
@@ -112,6 +120,8 @@ namespace Fonts.Metadata.Tool {
                     writer.WriteEndArray();
                     writer.WriteEndObject();
                 }
+                if(Options.AnalyzeSpdx)
+                    WriteSpdx(FontSpdxAnalyzer.Analyze(face, registry!, spdxOptions, Token));
                 writer.WriteEndObject();
                 Checkpoint();
             }

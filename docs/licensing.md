@@ -14,7 +14,7 @@ The raw declaration is the decoded `NameRecord.Value`. A recognized hint adds an
 
 A complete name table can therefore produce no hints even when it contains a license declaration. Independent accepted declarations in other records are still reported.
 
-Structured SPDX expression analysis is a planned extension, described in the [project status](../README.md#project-status). The current API neither returns an expression tree nor converts its operands into separate hints. Existing recognition rules and source-completeness semantics below remain the current contract.
+Structured [SPDX expression analysis](spdx.md) is implemented separately in the optional Font.Metadata.Spdx package. It returns native expression results and never converts operands into legacy hints. The rules below describe FontLicenseAnalyzer only.
 
 ## Result and evidence
 

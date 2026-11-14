@@ -10,7 +10,7 @@ Install a stable .NET 10 SDK and PowerShell 7. All projects target net10.0 on Wi
 pwsh -File eng/verify.ps1
 ```
 
-The script restores from nuget.org using the repository configuration. It builds and tests the projects, checks C# whitespace, packs local development artifacts and verifies consumption of those exact artifacts.
+The script restores the exact SPDX dependency and build/test packages from nuget.org using the repository configuration; see [dependency verification](docs/spdx.md#build-and-verification). It builds and tests the projects, checks C# whitespace, packs local development artifacts and verifies consumption of those exact artifacts.
 
 See [Testing](docs/testing.md) for focused commands and [CI](docs/ci.md) for the hosted matrix.
 

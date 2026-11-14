@@ -103,7 +103,8 @@ Outputs are ignored under artifacts: TRX reports, nupkg files and isolated packa
 
 ```shell
 dotnet test Font.Metadata.Tests/Font.Metadata.Tests.csproj -c Release
-dotnet test Font.Metadata.Tool.Tests/Font.Metadata.Tool.Tests.csproj -c Release
+dotnet test Font.Metadata.Tool.Tests/Font.Metadata.Tool.Tests.csproj -c Release --no-restore
+dotnet test Font.Metadata.Spdx.Tests/Font.Metadata.Spdx.Tests.csproj -c Release --no-restore
 dotnet format whitespace Font.Metadata.slnx --verify-no-changes --no-restore
 ```
 
@@ -115,7 +116,7 @@ Use --no-build only after a current successful build, and --no-restore only with
 pwsh -File eng/prepare-release.ps1 -Tag v1.2.3-preview.1
 ```
 
-Preparation includes the full verification, builds a portable ZIP from the checked tool package, extracts it into a fresh directory and checks help/version, real plain/JSON inspection, schema, recovery and license text. It writes two nupkg files, the ZIP and SHA256SUMS under `artifacts/release/1.2.3-preview.1/`. It creates no Git tag, requires no publication credentials and never publishes.
+Preparation includes the full verification, which builds the portable ZIP from the tool package, extracts it into a fresh directory and checks help/version, real plain/JSON inspection, schema, recovery and license text. Release preparation copies that same verified ZIP without rebuilding it. It writes three nupkg files, the ZIP and SHA256SUMS under `artifacts/release/1.2.3-preview.1/`. It creates no Git tag, requires no publication credentials and never publishes.
 
 The GitHub publication script is tested with a local command substitute; these checks do not contact GitHub. Actual OIDC authentication, NuGet push and hosted release creation are verified only during an explicitly initiated release.
 
@@ -136,3 +137,7 @@ The shared eng/verify-cli.ps1 smoke check runs against both installed and extrac
 Console Ctrl+C signal delivery is host-dependent and is not simulated by killing a child process. Local cancellation tests use a real asynchronous named pipe and the same command token path. They do not establish immediate cancellation of all native stdin/file/output operations. CI verifies cross-platform execution, with macOS covered on main, manual runs and releases; a local Windows run does not prove Linux/macOS behavior.
 
 The verification-script regression launches a separate PowerShell process with the GitHub Actions preamble, dot-sourced `-Command` invocation and `exit $LASTEXITCODE` footer. A successful smoke test must return zero and resume its caller despite expected CLI codes 1 and 3. An unexpected CLI failure and an invalid JSON example in an isolated fixture must still fail the shell. The smoke script explicitly exits zero only after all assertions and cleanup; exceptions are not suppressed. Per-case stdout/stderr remain in the package/portable smoke artifacts.
+
+## SPDX integration checks
+
+Adapter tests use independently built font records and expected expressions to check recognition boundaries, provenance, duplicate/shared records, UTF-16 coordinates, all six native AST node kinds, exact and one-over parser limits, per-face budgets and immutable results. CLI tests cover independent flags, legacy report snapshots, syntax/parser failures, declaration limits, validation truncation, source completeness, escaping and cancellation during output. Package verification uses a fresh closed feed, checks the actual transitive DLL and notices, and runs both installed and portable commands against the extended JSON schema, including invalid/empty expressions, explicit and bare parser limits, known/unknown/wrong-kind identifiers, qualified references and truncated validation. These integration checks do not retroactively extend the historical corpus findings above. Hosted Windows/Linux/macOS verification remains a separate executed gate.

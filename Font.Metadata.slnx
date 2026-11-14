@@ -3,4 +3,6 @@
   <Project Path="Font.Metadata.Tool/Font.Metadata.Tool.csproj" />
   <Project Path="Font.Metadata.Tests/Font.Metadata.Tests.csproj" />
   <Project Path="Font.Metadata.Tool.Tests/Font.Metadata.Tool.Tests.csproj" />
+  <Project Path="Font.Metadata.Spdx/Font.Metadata.Spdx.csproj" />
+  <Project Path="Font.Metadata.Spdx.Tests/Font.Metadata.Spdx.Tests.csproj" />
 </Solution>

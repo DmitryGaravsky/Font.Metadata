@@ -17,7 +17,7 @@ Replace sample filenames with your files. Shell-neutral command blocks use ordin
 
 ## Install the tool
 
-Use the .NET 10 SDK for `dotnet tool` installation and restore. Execution requires the .NET 10 runtime, which the SDK includes. The package supports Windows, Linux and macOS and includes the Font.Metadata library.
+Use the .NET 10 SDK for `dotnet tool` installation and restore. Execution requires the .NET 10 runtime, which the SDK includes. The package supports Windows, Linux and macOS and includes the reader, SPDX adapter and offline SPDX runtime dependency.
 
 In the published-package examples, replace `<version>` with an available release version, including its prerelease suffix when applicable. A configured release workflow does not establish that a public package exists. Before publication, use the source-build recipe below.
 
@@ -59,8 +59,8 @@ For a private or local package feed, add `--add-source <feed>` to install/restor
 From the Font.Metadata repository root, with a fresh tool directory:
 
 ```shell
-dotnet pack Font.Metadata.Tool/Font.Metadata.Tool.csproj -c Release -o artifacts/local-feed
-dotnet tool install --tool-path artifacts/local-tool --add-source artifacts/local-feed Font.Metadata.Tool --version 0.1.0-dev
+pwsh -File eng/verify.ps1
+dotnet tool install --tool-path artifacts/local-tool --add-source <verified-package-directory> Font.Metadata.Tool --version 0.1.0-dev
 ./artifacts/local-tool/font-metadata --help
 ./artifacts/local-tool/font-metadata inspect Example.woff2 --format json
 ```
@@ -68,6 +68,8 @@ dotnet tool install --tool-path artifacts/local-tool --add-source artifacts/loca
 `0.1.0-dev` is the current default in `Directory.Build.props`. If you override `Version` when packing, use the same version when installing. Use a new version for changed builds you distribute; reinstalling a development version can reuse a cached package. `--add-source` adds a feed without giving it precedence over other feeds.
 
 To use a downloaded `.nupkg`, put it in a directory and pass that directory to `--add-source`. No public package is required. For an installed local tool, use `dotnet tool run font-metadata --` in place of `font-metadata` in the recipes below; for a custom tool directory, use its executable path.
+
+Source builds restore Spdx.Expressions 0.1.0 from nuget.org; see [SPDX dependency verification](spdx.md#build-and-verification).
 
 See Microsoft's documentation for [tool installation](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install) and [local tool invocation](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-run).
 
