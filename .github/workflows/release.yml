@@ -1,15 +1,14 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
 defaults:
@@ -17,7 +16,10 @@ defaults:
     shell: pwsh
 
 env:
+  DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: '0'
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true'
   DOTNET_NOLOGO: '1'
 
 jobs:
@@ -27,14 +29,18 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
       - name: Validate release tag
         id: version
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
         run: |
+          ./eng/verify-release-source.ps1 -Tag $env:RELEASE_TAG -Commit $env:RELEASE_COMMIT | Out-Null
           $version = ./eng/get-version.ps1 -Tag $env:RELEASE_TAG
           "version=$version" >> $env:GITHUB_OUTPUT
 
@@ -47,26 +53,29 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-dotnet@v6
+          ref: ${{ github.sha }}
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - name: Verify packages and portable CLI
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: ./eng/prepare-release.ps1 -Tag $env:RELEASE_TAG
-      - name: Upload test reports
+      - name: Upload verification results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-tests-${{ matrix.os }}-${{ github.run_attempt }}
-          path: artifacts/test-results/**/*.trx
+          path: |
+            artifacts/test-results/**/*.trx
+            artifacts/release-tests/*/result.json
           if-no-files-found: warn
       - name: Preserve verified release files
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-${{ needs.version.outputs.version }}
           path: artifacts/release/${{ needs.version.outputs.version }}/*
@@ -82,36 +91,55 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-dotnet@v6
+          ref: ${{ github.sha }}
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
-          dotnet-version: '10.0.x'
-      - uses: actions/download-artifact@v8
+          global-json-file: global.json
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: release-${{ needs.version.outputs.version }}
           path: artifacts/publish
       - name: Validate publication inputs
+        id: publication
         env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
           NUGET_USER: ${{ vars.NUGET_USER }}
         run: |
-          if([string]::IsNullOrWhiteSpace($env:NUGET_USER)) { throw 'Set NUGET_USER in the nuget environment.' }
-          ./eng/verify-release-assets.ps1 -Version $env:RELEASE_VERSION -Directory artifacts/publish
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_USER)) {
+            throw 'Set NUGET_USER in the nuget environment.'
+          }
+          ./eng/publish-github-release.ps1 -Tag $env:RELEASE_TAG -Commit $env:RELEASE_COMMIT -Directory artifacts/publish -CheckOnly
+          $missing = foreach ($id in 'Font.Metadata','Font.Metadata.Spdx','Font.Metadata.Tool') {
+            $exists = ./eng/check-nuget-package.ps1 -PackageId $id -Version $env:RELEASE_VERSION -Commit $env:RELEASE_COMMIT -Directory artifacts/publish
+            if (-not $exists) { $id }
+          }
+          "missing=$($missing -join ',')" >> $env:GITHUB_OUTPUT
       - name: Authenticate to NuGet.org
-        uses: NuGet/login@v1
+        if: steps.publication.outputs.missing != ''
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         id: login
         with:
           user: ${{ vars.NUGET_USER }}
-      - name: Publish reader, SPDX adapter and dotnet tool
+      - name: Publish missing packages in dependency order
+        if: steps.publication.outputs.missing != ''
         env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          MISSING_PACKAGES: ${{ steps.publication.outputs.missing }}
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: |
-          foreach($id in @('Font.Metadata', 'Font.Metadata.Spdx', 'Font.Metadata.Tool')) {
-            dotnet nuget push "artifacts/publish/$id.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
-            if($LASTEXITCODE -ne 0) { throw "NuGet publication failed for $id" }
+          foreach ($id in $env:MISSING_PACKAGES.Split(',')) {
+            ./eng/verify-release-source.ps1 -Tag $env:RELEASE_TAG -Commit $env:RELEASE_COMMIT | Out-Null
+            dotnet nuget push "artifacts/publish/$id.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+            if ($LASTEXITCODE -ne 0) { throw "NuGet publication failed for $id." }
           }
 
   github-release:
@@ -121,16 +149,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@v8
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: release-${{ needs.version.outputs.version }}
           path: artifacts/publish
-      - name: Publish GitHub release
+      - name: Attach verified release files
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: ./eng/publish-github-release.ps1 -Tag $env:RELEASE_TAG -Directory artifacts/publish
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: ./eng/publish-github-release.ps1 -Tag $env:RELEASE_TAG -Commit $env:RELEASE_COMMIT -Directory artifacts/publish

@@ -1,11 +1,11 @@
 # SPDX expression analysis
 
 `Font.Metadata.Spdx` is an optional .NET 10 package in namespace `Fonts.Metadata`.
-It depends on `Font.Metadata` and the exact `Spdx.Expressions` version `0.1.0`.
+It depends on `Font.Metadata` and the exact `Spdx.Expressions` version `1.0.0`.
 The reader itself has no SPDX dependency. The CLI bundles the adapter and initializes
 the offline registry only with `--analyze-spdx`.
 
-The dependency is published as [Spdx.Expressions 0.1.0](https://www.nuget.org/packages/Spdx.Expressions/0.1.0).
+The dependency is published as [Spdx.Expressions 1.0.0](https://www.nuget.org/packages/Spdx.Expressions/1.0.0).
 Local and CI builds restore it from nuget.org; no adjacent source checkout or supplied local
 package is required. Runtime analysis remains offline. Publishing Font.Metadata packages is
 separate from restoring this dependency.
@@ -157,7 +157,7 @@ consumers can parse the exact expressionText when they need a tree. See the
 
 ## Build and verification
 
-The central dependency range is `[0.1.0]`, so restore cannot silently select another version.
+The central dependency range is `[1.0.0]`, so restore cannot silently select another version.
 Use the repository's public NuGet configuration:
 
 ```powershell

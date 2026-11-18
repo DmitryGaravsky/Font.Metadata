@@ -115,6 +115,65 @@ namespace Fonts.Metadata.Tool.Tests {
             Assert.That(faces[0].GetProperty("spdxAnalysis").GetProperty("isSourceComplete").GetBoolean(), Is.False);
             Assert.That(faces[1].GetProperty("spdxAnalysis").GetProperty("declarations").GetArrayLength(), Is.EqualTo(1));
         }
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task UnavailableContainersKeepContextAndExistingFaceShape(bool unsupported) {
+            byte[] bytes = unsupported ? Collection([("name", Names(Name.Text(13, "MIT")))]) : [0, 1, 0, 0];
+            if(unsupported)
+                U32(bytes, 4, 0x30000);
+            var result = await ToolProcess.Run(["inspect", "-", "--format", "json", "--analyze-spdx"], bytes);
+            Assert.That(result.Code, Is.EqualTo(1));
+            var root = result.Json();
+            Assert.That(root.GetProperty("spdxContext").ValueKind, Is.EqualTo(JsonValueKind.Object));
+            var source = root.GetProperty("results")[0];
+            Assert.That(source.GetProperty("status").GetString(), Is.EqualTo(unsupported ? "unsupported" : "failed"));
+            var faces = source.GetProperty("metadata").GetProperty("faces");
+            Assert.That(faces.GetArrayLength(), Is.EqualTo(unsupported ? 0 : 1));
+            if(!unsupported) {
+                Assert.That(faces[0].GetProperty("nameTableStatus").GetString(), Is.EqualTo("notRead"));
+                Assert.That(faces[0].GetProperty("spdxAnalysis").GetProperty("isSourceComplete").GetBoolean(), Is.False);
+                Assert.That(faces[0].GetProperty("spdxAnalysis").GetProperty("declarations").GetArrayLength(), Is.Zero);
+            }
+        }
+        [Test]
+        public async Task JsonCoordinatesAndNullableOutcomesMatchTheSourceRecords() {
+            string[] values = { " \r\nSPDX-License-Identifier: MIT OR Apache-2.0\r\n", "SPDX-License-Identifier: ",
+                "SPDX-License-Identifier: MIT OR \U0001f600", "SPDX-License-Identifier: Classpath-exception-2.0", "LicenseRef-Local" };
+            var result = await ToolProcess.Run(["inspect", "-", "--format", "json", "--analyze-spdx", "--include-name-records"],
+                Sfnt(("name", Names(values.Select(v => Name.Text(13, v)).ToArray()))));
+            Assert.That(result.Code, Is.Zero);
+            var face = result.Json().GetProperty("results")[0].GetProperty("metadata").GetProperty("faces")[0];
+            var declarations = face.GetProperty("spdxAnalysis").GetProperty("declarations");
+            Assert.That(declarations.GetArrayLength(), Is.EqualTo(values.Length));
+            for(int i = 0; i < values.Length; i++) {
+                var declaration = declarations[i];
+                Assert.That(JsonElement.DeepEquals(declaration.GetProperty("sourceRecord"), face.GetProperty("nameRecords")[i]), Is.True);
+                int start = declaration.GetProperty("sourceStart").GetInt32(), length = declaration.GetProperty("sourceLength").GetInt32();
+                string expression = declaration.GetProperty("expressionText").GetString()!;
+                Assert.That(values[i].Substring(start, length), Is.EqualTo(expression));
+                bool success = declaration.GetProperty("parseStatus").GetString() == "success";
+                var validation = declaration.GetProperty("validation");
+                Assert.That(validation.ValueKind == JsonValueKind.Object, Is.EqualTo(success));
+                foreach(var diagnostic in declaration.GetProperty("parseDiagnostics").EnumerateArray()) {
+                    int position = diagnostic.GetProperty("span").GetProperty("start").GetInt32();
+                    int size = diagnostic.GetProperty("span").GetProperty("length").GetInt32();
+                    Assert.That(position + size, Is.LessThanOrEqualTo(expression.Length));
+                }
+                if(success)
+                    foreach(var occurrence in validation.GetProperty("identifierOccurrences").EnumerateArray()) {
+                        int position = occurrence.GetProperty("span").GetProperty("start").GetInt32();
+                        int size = occurrence.GetProperty("span").GetProperty("length").GetInt32();
+                        Assert.That(values[i].Substring(start + position, size), Is.EqualTo(occurrence.GetProperty("identifier").GetString()));
+                    }
+            }
+            Assert.That(declarations[1].GetProperty("sourceStart").GetInt32(), Is.EqualTo(24));
+            Assert.That(declarations[1].GetProperty("sourceLength").GetInt32(), Is.Zero);
+            var wrongKind = declarations[3].GetProperty("validation").GetProperty("identifierOccurrences")[0];
+            Assert.That(wrongKind.GetProperty("lookupStatus").GetString(), Is.EqualTo("wrongKind"));
+            Assert.That(wrongKind.GetProperty("canonicalIdentifier").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(wrongKind.GetProperty("isDeprecated").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(declarations[4].GetProperty("validation").GetProperty("references")[0].GetProperty("documentId").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        }
         [Test]
         public async Task PlainOutputEscapesSourceAndLabelsOutcomes() {
             var result = await ToolProcess.Run(["inspect", "-", "--analyze-spdx"],

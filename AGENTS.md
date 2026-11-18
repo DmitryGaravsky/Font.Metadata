@@ -85,7 +85,7 @@ These invariants apply to implemented and future readers:
 - Do not run a full baseline automatically at each task start. Verify changed behavior proportionately and broaden checks when shared behavior or failures justify it.
 - Use --no-restore only with current assets; rebuild before --no-build after relevant edits.
 - Test observable behavior with independent fixtures. Do not mirror production algorithms in tests.
-- Keep publication exclusive to version tag workflows. Prepare and validate release files locally without credentials; never push tags or publish unless explicitly requested.
+- Keep publication exclusive to published GitHub Releases with version tags. Prepare and validate release files locally without credentials; never push tags or publish unless explicitly requested.
 - For API and packaging changes, test actual nupkg consumers and installed tools, not only ProjectReference builds.
 - Keep all repository documentation in English. Product docs describe current functionality; contributor docs describe development rules and checks.
 - Use UTF text diagrams, never Mermaid. Update diagrams when type ownership, dependencies or execution flow changes.

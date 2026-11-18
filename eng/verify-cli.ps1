@@ -136,6 +136,31 @@ try {
             }
         }
     }
+    foreach($case in @(
+        @{ name='unsupported'; bytes=[byte[]]@(116,116,99,102,0,3,0,0,0,0,0,1); status='unsupported' },
+        @{ name='failed'; bytes=[byte[]]@(0,1,0,0); status='failed' },
+        @{ name='unknown'; bytes=[byte[]]@(1,2,3); status='notRecognized' }
+    )) {
+        $path = 'spdx-' + $case.name + '.bin'
+        [IO.File]::WriteAllBytes((Join-Path $PWD $path), $case.bytes)
+        $emptyJson = & $Executable @Prefix inspect $path --format json --analyze-spdx 2> errors.txt
+        if($LASTEXITCODE -ne 1 -or (Get-Item errors.txt).Length -ne 0) { throw 'Empty/unsupported input changed exit semantics.' }
+        $emptyText = $emptyJson -join "`n"
+        if(-not (Test-Json -Json $emptyText -SchemaFile $schema)) { throw 'Empty/unsupported SPDX report violates schema.' }
+        $emptyReport = $emptyText | ConvertFrom-Json -AsHashtable
+        if($null -eq $emptyReport.spdxContext -or $emptyReport.results[0].status -cne $case.status) { throw 'Empty/unsupported result lost context or status.' }
+        if($case.name -eq 'unknown') {
+            if($null -ne $emptyReport.results[0].metadata) { throw 'Unknown input has fabricated metadata.' }
+        } elseif($case.name -eq 'unsupported') {
+            if($emptyReport.results[0].metadata.faces.Count -ne 0) { throw 'Unsupported collection has fabricated faces.' }
+        } else {
+            $faces = $emptyReport.results[0].metadata.faces
+            if($faces.Count -ne 1 -or $faces[0].nameTableStatus -cne 'notRead' -or
+                $faces[0].spdxAnalysis.isSourceComplete -or $faces[0].spdxAnalysis.declarations.Count -ne 0) {
+                throw 'Failed SFNT lost its unread face placeholder.'
+            }
+        }
+    }
     $plainSpdx = & $Executable @Prefix inspect valid.ttf --analyze-spdx
     if($LASTEXITCODE -ne 0 -or ($plainSpdx -join "`n") -notmatch 'FSI002') { throw 'SPDX plain report failed.' }
     foreach($mutation in @('context', 'flag', 'face', 'nullValidation', 'bareFailure', 'parseDiagnostic', 'hash', 'budget', 'sourceId')) {

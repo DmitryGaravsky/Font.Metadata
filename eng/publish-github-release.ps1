@@ -1,43 +1,54 @@
 #Requires -Version 7.0
 [CmdletBinding()]
-param([Parameter(Mandatory)][string] $Tag, [Parameter(Mandatory)][string] $Directory)
+param([Parameter(Mandatory)][string]$Tag, [Parameter(Mandatory)][string]$Commit,
+    [Parameter(Mandatory)][string]$Directory, [switch]$CheckOnly)
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $false
 Set-StrictMode -Version Latest
-$version = & (Join-Path $PSScriptRoot 'get-version.ps1') -Tag $Tag
-& (Join-Path $PSScriptRoot 'verify-release-assets.ps1') -Version $version -Directory $Directory
-function Invoke-Gh([string[]] $Arguments) {
-    $result = & gh @Arguments
-    if($LASTEXITCODE -ne 0) { throw ('GitHub CLI failed: {0}' -f ($Arguments[0..1] -join ' ')) }
-    return $result
-}
-$prerelease = $version.Contains('-')
-$details = & gh release view $Tag --json isDraft,isPrerelease,assets
-if($LASTEXITCODE -ne 0) {
-    # Creating a draft also fails safely if lookup failed because of auth/network errors or an existing release.
-    $arguments = @('release', 'create', $Tag, '--draft', '--verify-tag', '--title', $Tag, '--generate-notes')
-    if($prerelease) { $arguments += '--prerelease' }
-    Invoke-Gh $arguments | Write-Host
-    $details = Invoke-Gh @('release', 'view', $Tag, '--json', 'isDraft,isPrerelease,assets')
-}
-$release = ($details -join "`n") | ConvertFrom-Json
-if($release.isPrerelease -ne $prerelease) { throw 'Existing release has a different prerelease classification.' }
-$download = Join-Path ([IO.Path]::GetTempPath()) ('font-metadata-release-' + [Guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $download | Out-Null
-foreach($file in Get-ChildItem -LiteralPath $Directory -File) {
-    if($file.Name -cin @($release.assets | ForEach-Object { $_.name })) {
-        Invoke-Gh @('release', 'download', $Tag, '--pattern', $file.Name, '--dir', $download) | Write-Host
-        $remote = (Get-FileHash -LiteralPath (Join-Path $download $file.Name) -Algorithm SHA256).Hash
-        if($remote -ne (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) {
-            throw ('Existing release asset differs: {0}. Assets will not be overwritten.' -f $file.Name)
-        }
-    } else {
-        if(-not $release.isDraft) { throw ('Published release is missing asset: {0}' -f $file.Name) }
-        Invoke-Gh @('release', 'upload', $Tag, $file.FullName) | Write-Host
+$version = & "$PSScriptRoot/get-version.ps1" -Tag $Tag
+& "$PSScriptRoot/verify-release-assets.ps1" -Version $version -Directory $Directory -Commit $Commit
+function Invoke-Gh([string[]]$Arguments) {
+    & gh @Arguments --repo DmitryGaravsky/Font.Metadata
+    if ($LASTEXITCODE -ne 0) {
+        throw "GitHub CLI failed: $($Arguments[0]) $($Arguments[1])"
     }
 }
-if($release.isDraft) {
-    $arguments = @('release', 'edit', $Tag, '--draft=false')
-    if($prerelease) { $arguments += '--latest=false' }
-    Invoke-Gh $arguments | Write-Host
+$release = & "$PSScriptRoot/verify-release-source.ps1" -Tag $Tag -Commit $Commit
+$files = @(Get-ChildItem -LiteralPath $Directory -File)
+$assetNames = @($release.assets | ForEach-Object { $_.name })
+if (@($assetNames | Where-Object { $_ -cnotin $files.Name }).Count -ne 0 -or
+    @($assetNames | Select-Object -Unique).Count -ne $assetNames.Count) {
+    throw 'Existing release contains unexpected or duplicate assets; nothing will be overwritten.'
 }
-Write-Host ('GitHub release {0} is published with the verified assets.' -f $Tag)
+$download = Join-Path ([IO.Path]::GetTempPath()) ('font-release-' + [Guid]::NewGuid().ToString('N'))
+[IO.Directory]::CreateDirectory($download) | Out-Null
+# Validate all existing assets before uploading any missing ones. Keep the user's release text intact.
+foreach ($file in $files) {
+    if ($file.Name -cin $assetNames) {
+        Invoke-Gh @('release', 'download', $Tag, '--pattern', $file.Name, '--dir', $download) | Out-Null
+        if ((Get-FileHash -LiteralPath (Join-Path $download $file.Name)).Hash -cne (Get-FileHash -LiteralPath $file.FullName).Hash) {
+            throw "Existing release asset differs: $($file.Name). Assets will not be overwritten."
+        }
+    }
+}
+if ($CheckOnly) {
+    Write-Host 'GitHub release inputs verified without changes.'
+    return
+}
+$current = & "$PSScriptRoot/verify-release-source.ps1" -Tag $Tag -Commit $Commit
+if ($current.id -ne $release.id) {
+    throw 'The GitHub release was replaced during verification.'
+}
+foreach ($file in $files) {
+    if ($file.Name -cnotin $assetNames) {
+        Invoke-Gh @('release', 'upload', $Tag, $file.FullName) | Out-Null
+    }
+}
+# Re-read and download the result: upload success alone is not evidence of matching remote bytes.
+& "$PSCommandPath" -Tag $Tag -Commit $Commit -Directory $Directory -CheckOnly
+$final = & "$PSScriptRoot/verify-release-source.ps1" -Tag $Tag -Commit $Commit
+$finalNames = @($final.assets | ForEach-Object { $_.name })
+if ($final.id -ne $release.id -or @($files | Where-Object { $_.Name -cnotin $finalNames }).Count -ne 0) {
+    throw 'The GitHub release was replaced or lost an asset during publication.'
+}
+Write-Host "GitHub release $Tag has the verified assets."
