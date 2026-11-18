@@ -22,7 +22,7 @@ These capabilities support font catalogs, attribution reviews and metadata colle
 
 The core metadata readers and CLI inspection are implemented. Independent validation passed all 135 sample/operation checks on a 45-sample reviewed corpus, with scoped FontTools/OTS comparisons. A separate Windows robustness campaign passed 62 contract/boundary checks and observed no execution failures in 256 seeded mutations; the initial research cycle is complete with documented limitations. Exploratory Parse/Analyze/I/O measurements did not confirm a product regression or establish stable release thresholds. See [Testing](docs/testing.md#independent-validation) for the evaluated package, coverage and remaining limits.
 
-Legacy license analysis recognizes a documented set of identifiers, names and URLs. The optional `Font.Metadata.Spdx` adapter adds source-preserving expression analysis and CLI `--analyze-spdx`. It uses the published Spdx.Expressions 0.1.0 package; see [SPDX integration and local build](docs/spdx.md). Unicode coverage remains deferred.
+Legacy license analysis recognizes a documented set of identifiers, names and URLs. The optional `Font.Metadata.Spdx` adapter adds source-preserving expression analysis and CLI `--analyze-spdx`. It uses the published Spdx.Expressions 1.0.0 package; see [SPDX integration and local build](docs/spdx.md). Unicode coverage remains deferred.
 
 ## Use as a dotnet tool
 
@@ -153,7 +153,7 @@ pwsh -File eng/verify.ps1
 
 This restores dependencies, builds the solution, runs NUnit and offline release-script tests, checks C# whitespace, creates local development packages and verifies a PackageReference consumer, an installed dotnet tool and a portable payload. These checks are distinct from the completed initial independent validation cycle; a new release candidate still requires its own review.
 
-Tagged releases publish the reader, SPDX adapter and dotnet tool to NuGet.org and attach a portable CLI archive to GitHub Releases. Publication requires the setup and readiness review in [Releases](docs/release.md). Local verification does not publish anything.
+Publishing a GitHub Release starts verification of the tagged commit, publication of the three NuGet packages and attachment of the verified packages, portable CLI ZIP and checksums. Publication requires the setup and readiness review in [Releases](docs/release.md). Local verification does not publish anything.
 
 ## Documentation
 

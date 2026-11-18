@@ -69,7 +69,7 @@ dotnet tool install --tool-path artifacts/local-tool --add-source <verified-pack
 
 To use a downloaded `.nupkg`, put it in a directory and pass that directory to `--add-source`. No public package is required. For an installed local tool, use `dotnet tool run font-metadata --` in place of `font-metadata` in the recipes below; for a custom tool directory, use its executable path.
 
-Source builds restore Spdx.Expressions 0.1.0 from nuget.org; see [SPDX dependency verification](spdx.md#build-and-verification).
+Source builds restore Spdx.Expressions 1.0.0 from nuget.org; see [SPDX dependency verification](spdx.md#build-and-verification).
 
 See Microsoft's documentation for [tool installation](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install) and [local tool invocation](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-run).
 

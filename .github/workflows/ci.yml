@@ -32,25 +32,25 @@ jobs:
       DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
       DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - name: Restore, build, test, format and verify packages
         run: ./eng/verify.ps1
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: test-results-${{ matrix.os }}
+          name: test-results-${{ matrix.os }}-${{ github.run_attempt }}
           path: artifacts/test-results/**/*.trx
           if-no-files-found: warn
       - name: Upload local development packages
         if: success() && runner.os == 'Linux'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: development-packages
+          name: development-packages-${{ github.run_attempt }}
           path: artifacts/packages/**/*.nupkg
           if-no-files-found: error

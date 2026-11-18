@@ -99,7 +99,7 @@ Font.Metadata/
 ├── Font.Metadata.Tool.Tests/        child-process CLI tests
 ├── eng/                            local verification, packaging and release scripts
 ├── .github/workflows/ci.yml         operating-system verification matrix
-├── .github/workflows/release.yml    explicit version-tag publication
+├── .github/workflows/release.yml    publication after a GitHub Release is published
 └── docs/                           product and contributor documentation
 ```
 
@@ -209,7 +209,7 @@ Known expressions, exceptions and unknown variants fail whole-declaration matchi
 
 ## Runtime and validation boundaries
 
-All six projects target net10.0. The reader is self-contained. The optional adapter uses a pinned PackageReference; the published Spdx.Expressions 0.1.0 package is restored from nuget.org for local and CI builds. No product project references an external checkout. See [SPDX build](spdx.md#build-and-verification).
+All six projects target net10.0. The reader is self-contained. The optional adapter uses a pinned PackageReference; the published Spdx.Expressions 1.0.0 package is restored from nuget.org for local and CI builds. No product project references an external checkout. See [SPDX build](spdx.md#build-and-verification).
 
 Complete describes supported metadata extraction, not comprehensive font validity. See [Formats](formats.md) for exactly what is checked and [Testing](testing.md) for verification.
 

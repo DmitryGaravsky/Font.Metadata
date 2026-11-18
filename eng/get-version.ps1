@@ -4,8 +4,8 @@ param([string] $Version, [string] $Tag)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Set-Variable -Name ReleaseTagPrefix -Option Constant -Value 'v'
-if($Version -and $Tag) { throw 'Specify Version or Tag, not both.' }
-if($Tag) {
+if($PSBoundParameters.ContainsKey('Version') -and $PSBoundParameters.ContainsKey('Tag')) { throw 'Specify Version or Tag, not both.' }
+if($PSBoundParameters.ContainsKey('Tag')) {
     if(-not $Tag.StartsWith($ReleaseTagPrefix, [StringComparison]::Ordinal)) { throw 'Release tags must start with v.' }
     $Version = $Tag.Substring($ReleaseTagPrefix.Length)
 } elseif(-not $Version) {
