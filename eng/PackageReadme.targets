@@ -1,0 +1,43 @@
+<Project>
+  <UsingTask TaskName="WritePackageReadme" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <SourcePath ParameterType="System.String" Required="true" />
+      <OutputPath ParameterType="System.String" Required="true" />
+      <RepositoryUrl ParameterType="System.String" Required="true" />
+      <Revision ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        string source = File.ReadAllText(SourcePath);
+        string prefix = RepositoryUrl.TrimEnd('/') + "/blob/" + Revision + "/";
+        // Authored documentation uses inline Markdown links with repository-relative paths.
+        string result = Regex.Replace(source, @"(?m)^```[^\r\n]*\r?\n[\s\S]*?^```[ \t]*\r?$|\]\((?<target>[^)\r\n]+)\)", match => {
+            if(!match.Groups["target"].Success)
+                return match.Value;
+            string target = match.Groups["target"].Value;
+            if(target.StartsWith("#", StringComparison.Ordinal) || Uri.TryCreate(target, UriKind.Absolute, out _))
+                return match.Value;
+            return "](" + prefix + target + ")";
+        });
+        Directory.CreateDirectory(Path.GetDirectoryName(OutputPath));
+        File.WriteAllText(OutputPath, result, new System.Text.UTF8Encoding(false));
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="GeneratePackageReadme" BeforeTargets="_GetPackageFiles" DependsOnTargets="InitializeSourceControlInformation">
+    <PropertyGroup>
+      <_PackageReadmeRevision Condition="'$(SourceRevisionId)' != ''">$(SourceRevisionId)</_PackageReadmeRevision>
+      <_PackageReadmeRevision Condition="'$(RepositoryCommit)' != ''">$(RepositoryCommit)</_PackageReadmeRevision>
+      <_PackageReadmeRevision Condition="'$(_PackageReadmeRevision)' == ''">main</_PackageReadmeRevision>
+      <_PackageReadmePath>$(IntermediateOutputPath)package-readme/README.md</_PackageReadmePath>
+    </PropertyGroup>
+    <WritePackageReadme SourcePath="$(MSBuildProjectDirectory)/../README.md"
+                        OutputPath="$(_PackageReadmePath)" RepositoryUrl="$(RepositoryUrl)"
+                        Revision="$(_PackageReadmeRevision)" />
+    <ItemGroup>
+      <None Include="$(_PackageReadmePath)" Pack="true" PackagePath="/README.md" />
+    </ItemGroup>
+  </Target>
+</Project>

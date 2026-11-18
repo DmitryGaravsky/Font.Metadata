@@ -92,6 +92,12 @@ font-metadata inspect Example.woff2 --format json --analyze-licenses > font-lice
 
 `licenseDescription` and `licenseUrl` are ordinary metadata available without analysis. `--analyze-licenses` adds per-face hints with identifiers, matching rules and complete source records. Add `--include-name-records` to retain all available name records as well.
 
+To parse SPDX expressions in decoded license description records, add `--analyze-spdx`. This option can be used on its own or alongside `--analyze-licenses`. The JSON report links each recognized declaration to its source record and includes the parse and validation results. See [SPDX expression analysis](spdx.md).
+
+```shell
+font-metadata inspect Example.woff2 --format json --analyze-spdx
+```
+
 Inspect `licenseAnalysis.isSourceComplete` and the face's `nameTableStatus` when interpreting evidence. Empty hints do not prove absence of a license, and conflicting hints remain separate. Hints and raw embedding flags do not establish permission to redistribute a font. See [license analysis](licensing.md) for recognition boundaries.
 
 ## Inventory a directory with PowerShell
@@ -162,7 +168,7 @@ font-metadata inspect Damaged.ttf Unknown.bin Example.ttf --format json --includ
 
 This batch continues to the last file even if an earlier input cannot be fully read. A `partial` result can retain verified faces and records; check `nameTableStatus`, `os2TableStatus` and `diagnostics` before using them. An unrecognized input can have `metadata: null`. The exit code is 1 when at least one input is incomplete or unrecognized and no I/O failure occurs.
 
-`complete` describes supported metadata extraction, not full font validation. Unicode coverage, font classification and SPDX expression parsing are not current CLI capabilities.
+`complete` describes the outcome of supported metadata extraction. Unicode coverage and font classification are outside the scope of inspection.
 
 ## Inspect a binary stream
 

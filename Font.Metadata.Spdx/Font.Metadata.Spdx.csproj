@@ -9,7 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../Font.Metadata/Font.Metadata.csproj" />
     <PackageReference Include="Spdx.Expressions" />
-    <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
   </ItemGroup>
+  <Import Project="../eng/PackageReadme.targets" />
 </Project>

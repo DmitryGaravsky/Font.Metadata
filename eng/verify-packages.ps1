@@ -42,6 +42,10 @@ try {
         $archive.Dispose()
     }
     $expectedLicense = [IO.File]::ReadAllText((Join-Path $root 'LICENSE'))
+    $sourceReadme = Get-Content -LiteralPath (Join-Path $root 'README.md') -Raw
+    $fencedCode = '(?ms)^```[^\r\n]*\r?\n.*?^```[ \t]*\r?$'
+    $prose = $sourceReadme -replace $fencedCode, ''
+    $readmeLinks = [regex]::Matches($prose, '\]\((?<path>(?![a-zA-Z][\w+.-]*:|#)[^)\s]+)\)')
     [xml] $buildProperties = Get-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Raw
     foreach($id in @('Font.Metadata', 'Font.Metadata.Spdx', 'Font.Metadata.Tool')) {
         $package = [IO.Compression.ZipFile]::OpenRead((Join-Path $feed "$id.$Version.nupkg"))
@@ -53,6 +57,20 @@ try {
             if($actualLicense -cne $expectedLicense) { throw ('License text mismatch in {0}' -f $id) }
             $reader = [IO.StreamReader]::new($package.GetEntry("$id.nuspec").Open())
             try { [xml] $spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            $reader = [IO.StreamReader]::new($package.GetEntry('README.md').Open())
+            try { $packageReadme = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            $packageProse = $packageReadme -replace $fencedCode, ''
+            if($id -eq 'Font.Metadata.Tool') { $toolReadme = $packageReadme }
+            $repository = $spec.package.metadata.repository
+            $revision = $repository.GetAttribute('commit')
+            if(!$revision) { $revision = 'main' }
+            foreach($link in $readmeLinks) {
+                $path = $link.Groups['path'].Value
+                $target = "$($repository.url)/blob/$revision/$path"
+                if(!$packageProse.Contains("]($target)") -or $packageProse.Contains("]($path)")) {
+                    throw "Incorrect README link in ${id}: $path"
+                }
+            }
             if($spec.package.metadata.license.type -cne 'expression' -or
                 $spec.package.metadata.license.InnerText -cne 'MIT') {
                 throw ('Expected the MIT SPDX license expression in {0}' -f $id)
@@ -430,6 +448,9 @@ sealed class ChunkedInput : System.IO.MemoryStream {
     }
     if([IO.File]::ReadAllText((Join-Path $portable 'LICENSE')) -cne $expectedLicense) {
         throw 'Portable CLI license text mismatch.'
+    }
+    if([IO.File]::ReadAllText((Join-Path $portable 'README.md')) -cne $toolReadme) {
+        throw 'Portable README differs from the verified tool package README.'
     }
     $entryPoint = Join-Path $portable 'Font.Metadata.Tool.dll'
     $help = & dotnet $entryPoint --help

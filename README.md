@@ -1,6 +1,12 @@
 # Font.Metadata
 
-[![Build and test (main)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml?query=branch%3Amain)
+[![Build and test (main)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)
+[![License](https://img.shields.io/github/license/DmitryGaravsky/Font.Metadata)](https://github.com/DmitryGaravsky/Font.Metadata/blob/main/LICENSE)
+[![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4)](https://github.com/DmitryGaravsky/Font.Metadata/blob/main/Font.Metadata/Font.Metadata.csproj)
+
+[![Font.Metadata on NuGet](https://img.shields.io/nuget/vpre/Font.Metadata?label=Font.Metadata)](https://www.nuget.org/packages/Font.Metadata/)
+[![Font.Metadata.Spdx on NuGet](https://img.shields.io/nuget/vpre/Font.Metadata.Spdx?label=Font.Metadata.Spdx)](https://www.nuget.org/packages/Font.Metadata.Spdx/)
+[![Font.Metadata.Tool on NuGet](https://img.shields.io/nuget/vpre/Font.Metadata.Tool?label=Font.Metadata.Tool)](https://www.nuget.org/packages/Font.Metadata.Tool/)
 
 Font.Metadata is an MIT-licensed .NET 10 library and command-line tool for font inventories and license evidence inspection.
 
@@ -176,4 +182,4 @@ This README is the capability overview. The linked references own the detailed c
 
 Font.Metadata is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/).
 
-Copyright (c) 2026 Dmitry Garavsky. Font.Metadata and Font.Metadata.Tool are licensed under the [MIT License](LICENSE).
+Copyright (c) 2026 Dmitry Garavsky. Font.Metadata, Font.Metadata.Spdx and Font.Metadata.Tool are licensed under the [MIT License](LICENSE).
