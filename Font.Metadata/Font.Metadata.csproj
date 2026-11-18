@@ -9,7 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Font.Metadata.Tests" />
-    <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
   </ItemGroup>
+  <Import Project="../eng/PackageReadme.targets" />
 </Project>

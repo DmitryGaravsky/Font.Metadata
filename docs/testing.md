@@ -95,9 +95,11 @@ The web-container review regressions cover inflated compressed-length declaratio
 pwsh -File eng/verify.ps1
 ```
 
-This runs offline release-script checks, restore, Release build, both NUnit projects, whitespace verification, package creation and isolated package/tool checks. An optional `-Version 1.2.3-preview.1` overrides the development version consistently for restore, build and pack.
+This runs offline release-script checks, restore, Release build, tests for the reader, SPDX adapter and CLI, whitespace verification, package creation and isolated package/tool checks. An optional `-Version 1.2.3-preview.1` overrides the development version consistently for restore, build and pack.
 
 Outputs are ignored under artifacts: TRX reports, nupkg files and isolated package-smoke runs. Each smoke run uses a unique directory and cache to avoid stale packages with the same version. The package consumer restores from a local-only feed.
+
+During packing, relative file links in the README become GitHub links to the package's source revision. Builds without revision information use `main`. Verification checks these links in all three packages and compares the README in the extracted portable ZIP with the one in the tool package.
 
 ## Focused verification
 
@@ -108,7 +110,7 @@ dotnet test Font.Metadata.Spdx.Tests/Font.Metadata.Spdx.Tests.csproj -c Release 
 dotnet format whitespace Font.Metadata.slnx --verify-no-changes --no-restore
 ```
 
-Use --no-build only after a current successful build, and --no-restore only with current assets. Both test projects target net10.0. The configured CI matrix runs verification on Windows and Linux for pull requests, and also on macOS for pushes to main, manual runs and releases; a local run only verifies its own host.
+Use --no-build only after a current successful build, and --no-restore only with current assets. All three test projects target net10.0. The configured CI matrix runs verification on Windows and Linux for pull requests, and also on macOS for pushes to main, manual runs and releases; a local run only verifies its own host.
 
 ## Release preparation without publication
 
@@ -118,7 +120,7 @@ pwsh -File eng/prepare-release.ps1 -Tag v1.2.3-preview.1
 
 Preparation includes the full verification, which builds the portable ZIP from the tool package, extracts it into a fresh directory and checks help/version, real plain/JSON inspection, schema, recovery and license text. Release preparation copies that same verified ZIP without rebuilding it. It writes three nupkg files, the ZIP and SHA256SUMS under `artifacts/release/1.2.3-preview.1/`. It creates no Git tag, requires no publication credentials and never publishes.
 
-The GitHub publication script is tested with a local command substitute; these checks do not contact GitHub. Actual OIDC authentication, NuGet push and hosted release creation are verified only during an explicitly initiated release.
+The local release tests simulate GitHub and NuGet responses. Publishing a GitHub Release starts the hosted workflow. After verification and environment approval, it exchanges an OIDC token, publishes the packages to NuGet and attaches the verified files to that existing release. See [Releases](release.md).
 
 ## Extending coverage
 
