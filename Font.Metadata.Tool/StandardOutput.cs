@@ -9,11 +9,9 @@ namespace Fonts.Metadata.Tool {
         const int UnixOutputDescriptor = 1;
         const int Unbuffered = 1;
         const string InvalidOutput = "The standard output handle is unavailable.";
-
         internal static Stream Open() {
             if(!Console.IsOutputRedirected)
                 return Console.OpenStandardOutput();
-
             // Console streams suppress broken-pipe errors. Use a borrowed OS handle for redirected
             // output so the command can report CLI_OUTPUT_ERROR instead of a false success.
             // https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Console/src/System/ConsolePal.Windows.cs

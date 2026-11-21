@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Fonts.Metadata.Internal;
 using Spdx.Expressions;
 
 namespace Fonts.Metadata {
@@ -9,8 +10,8 @@ namespace Fonts.Metadata {
             IsSourceComplete = sourceComplete;
             IsAnalysisComplete = analysisComplete;
             RegistryIdentity = identity;
-            Declarations = declarations.AsReadOnly();
-            Diagnostics = diagnostics.AsReadOnly();
+            Declarations = ResultList<FontSpdxDeclaration>.Snapshot(declarations);
+            Diagnostics = ResultList<FontSpdxDiagnostic>.Snapshot(diagnostics);
             DiagnosticsTruncated = truncated;
         }
         /// <summary>True for a Complete or Missing name table, independently of recognition coverage.</summary>
@@ -18,9 +19,9 @@ namespace Fonts.Metadata {
         /// <summary>True when the available source was processed without work or result exhaustion.</summary>
         public bool IsAnalysisComplete { get; }
         /// <summary>Whole-record recognition profile, independent of parser syntax.</summary>
-        public string RecognitionProfile => "font-name13-v1";
+        public string RecognitionProfile { get { return "font-name13-v1"; } }
         /// <summary>Fixed native expression syntax profile.</summary>
-        public string SyntaxProfile => "SPDX-2.3.1";
+        public string SyntaxProfile { get { return "SPDX-2.3.1"; } }
         /// <summary>Identity of the explicit registry, including when no declarations were found.</summary>
         public SpdxRegistryIdentity RegistryIdentity { get; }
         /// <summary>Admitted attempts in source order, retaining duplicate records and failures.</summary>

@@ -36,7 +36,6 @@ namespace Fonts.Metadata.Tests {
             Encoding.ASCII.GetBytes("BAD!").CopyTo(font, unsupportedHeaderOffset);
             U16(font, unsupportedHeaderOffset + TableCountOffset, untrustedTableCount);
             names.CopyTo(font, validNameOffset);
-
             var result = FontMetadataReader.Inspect(font);
             int good = reverseOrder ? 1 : 0, bad = 1 - good;
             Assert.That(result.Status, Is.EqualTo(FontReadStatus.Partial));
@@ -49,7 +48,6 @@ namespace Fonts.Metadata.Tests {
             var exception = Assert.Throws<FontReadException>(() => FontMetadataReader.Read(font))!;
             Assert.That(exception.Result.Metadata!.Faces[good].FamilyName, Is.EqualTo("Valid"));
         }
-
         [TestCase("missing", 1)]
         [TestCase("unicode", 1)]
         [TestCase("budget", 1)]
@@ -81,7 +79,6 @@ namespace Fonts.Metadata.Tests {
             Assert.That(result.Diagnostics.Any(x => x.Category == (failure == "budget" ?
                 FontDiagnosticCategory.LimitExceeded : FontDiagnosticCategory.MalformedData)), Is.True);
         }
-
         [Test]
         public void AnUnreadableLanguageWithoutFallbackLeavesPreferredNameNull() {
             var font = Sfnt(("name", NamesWithLanguages([Name.Text(FamilyNameId, "Raw", language: 0x8000)], Array.Empty<string>())));
@@ -90,13 +87,11 @@ namespace Fonts.Metadata.Tests {
             Assert.That(result.Metadata!.Faces[0].NameRecords.Single().Value, Is.EqualTo("Raw"));
             Assert.That(result.Metadata.Faces[0].FamilyName, Is.Null);
         }
-
         [Test]
         public void BlankHighPriorityNamesDoNotPreventLowerPriorityFallback() {
             var font = Sfnt(("name", Names(Name.Text(FamilyNameId, "  \0 "), Name.Text(FamilyNameId, "French", language: 0x040c))));
             Assert.That(FontMetadataReader.Read(font).Faces[0].FamilyName, Is.EqualTo("French"));
         }
-
         [Test]
         public void SharedLongNamesDoNotMultiplyStringAllocationsByRecordsAndFaces() {
             const int recordCount = 512, faceCount = 8;
@@ -105,7 +100,6 @@ namespace Fonts.Metadata.Tests {
             byte[] font = SharedNames(names, faceCount);
             var options = new FontReadOptions { Limits = new FontReadLimits { MaxTotalNameStringBytes = raw.Length * sizeof(char) } };
             FontMetadataReader.Inspect(Example()); // Keep JIT/encoding initialization out of the measurement.
-
             long before = GC.GetAllocatedBytesForCurrentThread();
             var result = FontMetadataReader.Inspect(font, options);
             long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
@@ -120,7 +114,6 @@ namespace Fonts.Metadata.Tests {
             Assert.That(allocated, Is.LessThan(1024 * 1024), string.Format(AllocationFailureMessage, allocated, font.Length));
             TestContext.Out.WriteLine(AllocationReport, font.Length, allocated);
         }
-
         [Test]
         public void SharedTablePreferredValuesDoNotAllocateAStringPerFace() {
             byte[] font = SharedNames(Names(Name.Text(FamilyNameId, " " + new string('A', 32766))), 256);
@@ -132,7 +125,6 @@ namespace Fonts.Metadata.Tests {
             Assert.That(result.Metadata!.Faces.All(x => x.FamilyName!.Length == 32766), Is.True);
             Assert.That(allocated, Is.LessThan(2 * 1024 * 1024), string.Format(SharedValueAllocationFailureMessage, allocated));
         }
-
         [Test]
         public void CancellationDuringPreferredSelectionStopsBeforeTheNextRecord() {
             var record = FontMetadataReader.Read(Example()).Faces[0].NameRecords[0];
@@ -143,7 +135,6 @@ namespace Fonts.Metadata.Tests {
                 Assert.That(exception.CancellationToken, Is.EqualTo(cancellation.Token));
             }
         }
-
         [TestCase("00000100")]
         [TestCase("01000200")]
         [TestCase("02000200")]
@@ -162,7 +153,6 @@ namespace Fonts.Metadata.Tests {
             prefix[magicOffset + 1] = 0x4c;
             Assert.That(FontMetadataReader.Inspect(prefix).Status, Is.EqualTo(FontReadStatus.NotRecognized));
         }
-
         // A deterministic cancellation point inside the real selection loop, without timers,
         // public test hooks, large inputs or races with a worker thread.
         sealed class CancelDuringSelectionList : IReadOnlyList<FontMetadata.NameRecord> {
@@ -190,7 +180,6 @@ namespace Fonts.Metadata.Tests {
                 return GetEnumerator();
             }
         }
-
         static byte[] RepeatedNames(string text, int count) {
             int storage = NameHeaderSize + count * NameRecordSize;
             byte[] value = Encoding.BigEndianUnicode.GetBytes(text);
@@ -208,7 +197,6 @@ namespace Fonts.Metadata.Tests {
             value.CopyTo(result, storage);
             return result;
         }
-
         static byte[] SharedNames(byte[] names, int count) {
             // Start with empty tables, then append exactly one payload and point all faces at it.
             byte[] font = Collection(Enumerable.Range(0, count).Select(_ => new[] { ("name", Array.Empty<byte>()) }).ToArray());

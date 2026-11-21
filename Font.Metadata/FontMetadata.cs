@@ -25,7 +25,10 @@ namespace Fonts.Metadata {
             internal Face(int index, uint? flavor, FontSectionStatus nameStatus = FontSectionStatus.NotRead,
                 FontSectionStatus os2Status = FontSectionStatus.NotRead, IReadOnlyList<NameRecord>? records = null,
                 string? vendorId = null, ushort? permissions = null, IReadOnlyDictionary<int, string>? preferred = null,
-                FontFaceSource source = FontFaceSource.Container) {
+                FontFaceSource source = FontFaceSource.Container, FontUnicodeCoverage? coverage = null,
+                FontVariationAxes? axes = null) {
+                UnicodeCoverage = coverage;
+                VariationAxes = axes;
                 Index = index;
                 Source = source;
                 SfntFlavor = flavor;
@@ -60,6 +63,10 @@ namespace Fonts.Metadata {
             public FontSectionStatus NameTableStatus { get; }
             /// <summary>Completeness of supported OS/2 metadata fields.</summary>
             public FontSectionStatus Os2TableStatus { get; }
+            /// <summary>Unicode scalar coverage of the selected cmap subtable, or null when not requested.</summary>
+            public FontUnicodeCoverage? UnicodeCoverage { get; }
+            /// <summary>Ordered design axes from fvar, or null when not requested.</summary>
+            public FontVariationAxes? VariationAxes { get; }
             /// <summary>All decoded name IDs in source order, including duplicates and unknown IDs.</summary>
             public IReadOnlyList<NameRecord> NameRecords { get; }
             /// <summary>OS/2 vendor identifier, or null when unavailable or blank.</summary>

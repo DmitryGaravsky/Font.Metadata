@@ -8,6 +8,7 @@ Inspection runs offline without installing fonts or loading a rendering engine. 
 | --- | --- |
 | Identify fonts and collection faces | [Names and attribution](#inspect-names-and-attribution) |
 | Collect declared licenses for review | [License evidence](#collect-license-evidence) |
+| Read embedding flags from their original sources | [Inspect raw fsType](#inspect-raw-fstype) |
 | Inventory font assets in a repository | [Directory inventory](#inventory-a-directory-with-powershell) |
 | Integrate extracted facts into another system | [Read JSON](#read-a-json-report-in-powershell) |
 | Investigate incomplete metadata | [Damaged inputs](#inspect-damaged-or-unrecognized-inputs) |
@@ -69,7 +70,7 @@ dotnet tool install --tool-path artifacts/local-tool --add-source <verified-pack
 
 To use a downloaded `.nupkg`, put it in a directory and pass that directory to `--add-source`. No public package is required. For an installed local tool, use `dotnet tool run font-metadata --` in place of `font-metadata` in the recipes below; for a custom tool directory, use its executable path.
 
-Source builds restore Spdx.Expressions 1.0.0 from nuget.org; see [SPDX dependency verification](spdx.md#build-and-verification).
+Source builds restore Spdx.Expressions 1.1.0 from nuget.org; see [SPDX dependency verification](spdx.md#build-and-verification).
 
 See Microsoft's documentation for [tool installation](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install) and [local tool invocation](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-run).
 
@@ -99,6 +100,25 @@ font-metadata inspect Example.woff2 --format json --analyze-spdx
 ```
 
 Inspect `licenseAnalysis.isSourceComplete` and the face's `nameTableStatus` when interpreting evidence. Empty hints do not prove absence of a license, and conflicting hints remain separate. Hints and raw embedding flags do not establish permission to redistribute a font. See [license analysis](licensing.md) for recognition boundaries.
+
+## Inspect raw fsType
+
+From the repository root, inspect the supplied [398-byte EOT example](examples/Recovery.eot). Its main face is unreadable and its EUDC face survives. The CLI returns exit code 1 and a complete JSON report. In PowerShell 7:
+
+```powershell
+$json = font-metadata inspect docs/examples/Recovery.eot --format json
+if($LASTEXITCODE -ne 1) { throw 'Expected a partial inspection for this example.' }
+$report = ($json -join [Environment]::NewLine) | ConvertFrom-Json
+./docs/examples/read-embedding-flags.ps1 -Report $report | Format-Table
+```
+
+| Source | Face index | Section status | Raw fsType | Bit 0x0002 set |
+| --- | ---: | --- | --- | --- |
+| EOT header | — | complete | 0x0002 | True |
+| eotMain | 0 | notRead | unavailable | unknown |
+| eotEudc | 1 | complete | 0x0000 | False |
+
+The [example reader](examples/read-embedding-flags.ps1) reads the header and each face's OS/2 value independently. A blank raw value or bit in its PowerShell output represents JSON null. For ordinary fonts only face rows appear. The bit test records the presence of the Restricted License embedding bit and preserves all other bits in the hexadecimal value. Interpret the embedding subfield using the font specification. Review license declarations in their own source records. [OpenType OS/2 fsType](https://learn.microsoft.com/en-us/typography/opentype/spec/os2#fstype)
 
 ## Inventory a directory with PowerShell
 
@@ -168,7 +188,7 @@ font-metadata inspect Damaged.ttf Unknown.bin Example.ttf --format json --includ
 
 This batch continues to the last file even if an earlier input cannot be fully read. A `partial` result can retain verified faces and records; check `nameTableStatus`, `os2TableStatus` and `diagnostics` before using them. An unrecognized input can have `metadata: null`. The exit code is 1 when at least one input is incomplete or unrecognized and no I/O failure occurs.
 
-`complete` describes the outcome of supported metadata extraction. Unicode coverage and font classification are outside the scope of inspection.
+`complete` describes the outcome of supported metadata extraction. Ordinary inspection shows design axes when a face declares fvar. Add `--include-variation-axes` to audit every face, including static fonts and unreadable faces. Use `--include-unicode-coverage` for mapped Unicode scalar ranges. Inspect each requested section’s status before using its values.
 
 ## Inspect a binary stream
 

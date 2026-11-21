@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="../Font.Metadata.Tests/FontFixtures.cs" Link="Fixtures/FontFixtures.cs" />
     <Compile Include="../Font.Metadata.Tests/WebFontFixtures.cs" Link="Fixtures/WebFontFixtures.cs" />
+    <None Include="../Font.Metadata.Spdx.Tests/TestData/SPDX-MIT.txt" Link="TestData/SPDX-MIT.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopyToolForProcessTests" AfterTargets="Build">
     <ItemGroup>

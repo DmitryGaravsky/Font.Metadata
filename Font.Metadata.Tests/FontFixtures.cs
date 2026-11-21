@@ -40,7 +40,6 @@ namespace Fonts.Metadata.Tests {
         internal const ushort LicenseUrlNameId = 14;
         internal const ushort TypographicFamilyNameId = 16;
         internal const ushort TypographicSubfamilyNameId = 17;
-
         internal sealed record Name(ushort Id, byte[] Bytes, ushort Platform = WindowsPlatform, ushort Encoding = WindowsUnicodeBmpEncoding, ushort Language = EnglishLanguage) {
             internal static Name Text(ushort id, string value, ushort platform = WindowsPlatform, ushort encoding = WindowsUnicodeBmpEncoding, ushort language = EnglishLanguage) {
                 byte[] bytes = System.Text.Encoding.BigEndianUnicode.GetBytes(value);

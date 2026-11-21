@@ -12,7 +12,6 @@ namespace Fonts.Metadata {
         const string CharacterLimitMessage = "The source character limit was reached before this record.";
         const string DeclarationLimitMessage = "The declaration limit omitted this admitted attempt and subsequent work.";
         const string ProbeLimitMessage = "A bare expression probe exhausted a parser limit; recognition is incomplete.";
-
         /// <summary>Analyzes ID 13 records in source order using the font-name13-v1 whole-record profile.</summary>
         /// <exception cref="ArgumentNullException">Face, registry or an explicitly supplied nested option is null.</exception>
         /// <exception cref="ArgumentOutOfRangeException">A limit is outside its documented range.</exception>
@@ -75,7 +74,6 @@ namespace Fonts.Metadata {
             cancellationToken.ThrowIfCancellationRequested();
             bool sourceComplete = face.NameTableStatus is FontSectionStatus.Complete or FontSectionStatus.Missing;
             return new FontSpdxAnalysis(sourceComplete, complete, registry.Identity, declarations, diagnostics, truncated);
-
             void Limit(string code, string message, FontMetadata.NameRecord record) {
                 complete = false;
                 if(diagnostics.Count < options.MaxDiagnostics)

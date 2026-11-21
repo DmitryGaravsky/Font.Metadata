@@ -29,7 +29,7 @@ Input size alone does not bound decompression. WOFF checks selected zlib streams
 
 These controls do not impose an exact managed-heap or process-memory ceiling. Returned strings and records, caller input, stream buffering, runtime objects and codec internals have costs beyond controlled decoded-buffer capacity. Limits apply per operation; applications also control concurrency and how long results remain referenced.
 
-A limit diagnostic is an incomplete-processing outcome, not evidence that the entire input was inspected. Diagnostic suppression is explicit when the diagnostic budget is exhausted.
+A limit diagnostic is an incomplete-processing outcome, not evidence that the entire input was inspected. The inspection keeps baseline diagnostics first. Optional sections retain their reading status when the shared diagnostic budget is exhausted. See [diagnostic limits](diagnostics.md#diagnostic-data).
 
 ## Cancellation and process isolation
 

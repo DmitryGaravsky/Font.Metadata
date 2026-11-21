@@ -26,14 +26,12 @@ namespace Fonts.Metadata.Internal {
         const int TableRecordSize = 16;
         const int TableDataOffsetField = 8;
         const int TableLengthField = 12;
-
         const uint CollectionVersion1 = 0x00010000;
         const uint CollectionVersion2 = 0x00020000;
         const int CollectionHeaderSize = 12;
         const int CollectionVersionOffset = 4;
         const int CollectionFaceCountOffset = 8;
         const int CollectionDsigDescriptorSize = 12;
-
         // EOT is little-endian; recognition only needs the prefix through MagicNumber.
         // https://www.w3.org/submissions/EOT/#FileFormat
         const int EotRecognitionPrefixSize = 36;
@@ -43,7 +41,6 @@ namespace Fonts.Metadata.Internal {
         const uint EotVersion1 = 0x00010000;
         const uint EotVersion2 = 0x00020001;
         const uint EotVersion2WithRootStringChecksum = 0x00020002;
-
         readonly ReadOnlySpan<byte> data;
         readonly ReadingContext context;
         readonly SourceLocation source;
@@ -105,7 +102,7 @@ namespace Fonts.Metadata.Internal {
             var diagnostic = new FontDiagnostic(FontDiagnosticCodes.LimitExceeded,
                 FontDiagnosticSeverity.Error, FontDiagnosticCategory.LimitExceeded, Messages.InputLimit);
             var metadata = format == FontFormat.Unknown ? null : new FontMetadata(format);
-            var diagnostics = Array.AsReadOnly([diagnostic]);
+            IReadOnlyList<FontDiagnostic> diagnostics = [diagnostic];
             return new FontInspectionResult(FontReadStatus.Failed, metadata, diagnostics);
         }
         void Error(string code, string message, long? offset, int? index = null, string? tag = null,
@@ -209,7 +206,7 @@ namespace Fonts.Metadata.Internal {
             return MetadataTables.U32(data, CollectionHeaderSize + index * sizeof(uint));
         }
         FontMetadata.Face EmptyFace(int index, uint? flavor = null) {
-            return new FontMetadata.Face(index, flavor, source: faceSource);
+            return new FontMetadata.Face(index, flavor, source: faceSource, coverage: context.GetCoverage(null), axes: context.GetAxes(null));
         }
         FontMetadata.Face ReadFace(int index, long offset, long headerEnd) {
             if(offset < headerEnd || !InBounds(offset, SfntHeaderSize)) {
@@ -281,11 +278,14 @@ namespace Fonts.Metadata.Internal {
                 ranges.Add(entry);
             }
             directoryError |= InvalidateOverlappingTables(ranges, index);
-            TableMetadata? names = ReadTable(tables.GetValueOrDefault(NameTag), index);
-            TableMetadata? os2 = ReadTable(tables.GetValueOrDefault(Os2Tag), index);
+            var names = ReadTable(tables.GetValueOrDefault(NameTag), index);
+            var os2 = ReadTable(tables.GetValueOrDefault(Os2Tag), index);
+            var cmap = context.IncludeUnicodeCoverage ? ReadTable(tables.GetValueOrDefault(ContainerLayout.CmapTag), index) : null;
+            var fvar = context.IncludeVariationAxes ? ReadTable(tables.GetValueOrDefault(ContainerLayout.FvarTag), index) : null;
             context.IncompleteSections |= !IsCompleteSection(names.Status) || !IsCompleteSection(os2.Status);
             context.HasUsableMetadata |= HasUsableFaceMetadata(names.Status, os2.Status, directoryError);
-            return new FontMetadata.Face(index, flavor, names.Status, os2.Status, names.Records, os2.VendorId, os2.Permissions, names.PreferredNames, faceSource);
+            return new FontMetadata.Face(index, flavor, names.Status, os2.Status, names.Records,
+                os2.VendorId, os2.Permissions, names.PreferredNames, faceSource, context.GetCoverage(cmap), context.GetAxes(fvar));
         }
         bool OverlapsAnotherDirectory(long start, long end) {
             foreach(var range in directories) {
@@ -338,11 +338,12 @@ namespace Fonts.Metadata.Internal {
             if(range == null)
                 return new TableMetadata { Status = FontSectionStatus.Missing };
             if(!range.Readable)
-                return new TableMetadata { Status = FontSectionStatus.Invalid };
+                return TableMetadata.UnreadableEntry(range.Tag, FontSectionStatus.Invalid);
             if(range.Length > context.Limits.MaxTableBytes) {
-                Error(FontDiagnosticCodes.LimitExceeded, Messages.TableSizeLimit, range.Offset, index, range.TagText,
-                    FontDiagnosticCategory.LimitExceeded);
-                return new TableMetadata { Status = FontSectionStatus.NotRead };
+                var diagnostic = new FontDiagnostic(FontDiagnosticCodes.LimitExceeded, FontDiagnosticSeverity.Error,
+                    FontDiagnosticCategory.LimitExceeded, Messages.TableSizeLimit, tableTag: range.TagText, byteOffset: source.Map(range.Offset));
+                return context.SharedTableFailure(source, range.Offset, range.Length, range.Tag,
+                    index, FontSectionStatus.NotRead, diagnostic);
             }
             // Cache physical source metadata once and localize diagnostics per face.
             var table = data.Slice((int)range.Offset, (int)range.Length);

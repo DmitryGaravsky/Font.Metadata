@@ -10,7 +10,7 @@ if($PSBoundParameters.ContainsKey('Tag')) {
     $Version = $Tag.Substring($ReleaseTagPrefix.Length)
 } elseif(-not $Version) {
     [xml] $properties = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../Directory.Build.props') -Raw
-    $Version = [string] $properties.Project.PropertyGroup.Version
+    $Version = $properties.SelectSingleNode('/Project/PropertyGroup[not(@Condition)]/Version').InnerText
 }
 # https://semver.org/#spec-item-9
 # Canonical NuGet/SemVer subset: lowercase prerelease labels, no build metadata or numeric leading zeros.

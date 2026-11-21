@@ -16,6 +16,8 @@ font-metadata inspect -h
 font-metadata inspect <path> [<path> ...] [options]
 font-metadata inspect - [options]
 font-metadata inspect [options] -- <literal-path> [<literal-path> ...]
+font-metadata inspect-license --help
+font-metadata inspect-license <path> [<path> ...] [--format plain|json]
 ```
 
 Inspection is explicit; a bare filename is not a command. No arguments display help and do not read redirected stdin. Commands, options and values are case-sensitive. Options may appear anywhere after `inspect`, before `--`.
@@ -26,6 +28,8 @@ Inspection is explicit; a bare filename is not a command. No arguments display h
 | `--include-name-records` | off | All available decoded name records, including unknown IDs and duplicates |
 | `--analyze-licenses` | off | Per-face license indications with their complete source records |
 | `--analyze-spdx` | off | Independent whole-record SPDX expression attempts, native outcomes and source evidence |
+| `--include-unicode-coverage` | off | Per-face cmap selection, section status and inclusive Unicode scalar ranges |
+| `--include-variation-axes` | declared tables only | Report fvar status for every face, including missing or unreadable directories |
 | `--max-input-bytes N` | 134217728 | Maximum bytes per source; other library decoding limits still apply |
 
 Values must be separate arguments; `--format=json`, aliases, repeated options and mixed help/inspection requests are invalid. N is ASCII decimal digits without signs, separators or suffixes, in 1..Array.MaxLength-1. Leading zeros are allowed. At least one source is required. All arguments are validated before any input is opened.
@@ -37,6 +41,7 @@ The tool preserves input order and repeated paths. It does not expand wildcards,
 ```shell
 font-metadata inspect Example.ttf
 font-metadata inspect One.ttf Two.woff2 --format json
+font-metadata inspect Variable.ttf --include-unicode-coverage --include-variation-axes --format json
 font-metadata inspect Example.eot --include-name-records --analyze-licenses
 font-metadata inspect - --format json
 font-metadata inspect --format plain -- -font.ttf
@@ -61,12 +66,18 @@ See the machine-readable [JSON Schema](cli.schema.json), a [complete report](exa
 
 Output is one UTF-8 JSON object without BOM, indented by two spaces and terminated by a newline, even for multiple inputs. No banners, timestamps, stack traces or resolved absolute paths are added. Property order is deterministic for readability; consumers must not depend on it.
 
-The CLI uses an explicit projection, not automatic serialization of library objects. A breaking shape/type/meaning change requires a new schemaVersion. Consumers should tolerate new optional fields. Enum vocabulary changes require deliberate compatibility review. License recognition results may evolve independently of the report shape.
+Ordinary `inspect` includes `variationAxes` in plain and JSON output for each face whose directory identifies an fvar entry. This includes an empty, malformed, unsupported or budget-limited table. Faces without an entry and faces whose directory could not be inspected omit the section. With `--include-variation-axes`, every reported face has a section, so a caller can distinguish proven absence (`missing`) from an unavailable directory or payload. The JSON option `includeVariationAxes: true` records the explicit audit flag only.
+
+Unicode coverage is opt-in. With `--include-unicode-coverage`, JSON contains `includeUnicodeCoverage: true` and every reported face has a `unicodeCoverage` section. Each object carries its own `status` and `diagnostics`. Coverage reports the selected `platformId`, `encodingId`, `format` and inclusive integer ranges (`start`, `end`). Axes carry `index`, `tag`, `minimum`, `default`, `maximum`, `flags` and `nameId`. For localized axis labels, also request `--include-name-records`. Section-local errors are reported within the requested section. Existing container errors still affect the source status and exit code.
+
+The CLI projects library results into its own wire format. Package versions and `schemaVersion` evolve independently. A v1 consumer should check the version, read the fields it uses by name, and ignore additional optional properties. Existing required fields, JSON types, nullable values, source indexes, ordering of results and option-dependent presence keep their documented meanings. A new opt-in analysis may add optional properties within v1 when existing invocations and their exit codes keep their behavior.
+
+Removing or renaming an existing field, changing its type or meaning, or emitting a new value in an existing closed schema enum requires a new schema version. During 1.x, existing v1 invocations must remain available if a later format is introduced. An unfamiliar status must never be interpreted as a successful inspection. Recognition results may evolve with documented rule or catalog updates. Compare the profiles and registry identity when comparing SPDX reports.
 
 | Root field | Meaning |
 | --- | --- |
 | schemaVersion | 1 |
-| options | includeNameRecords, analyzeLicenses (booleans), maxInputBytes (integer); analyzeSpdx=true only with --analyze-spdx |
+| options | `includeNameRecords`, `analyzeLicenses` and `maxInputBytes` are always present. `analyzeSpdx`, `includeUnicodeCoverage` and `includeVariationAxes` are present and true only for their explicit flags. |
 | spdxContext | Present only with --analyze-spdx: recognition/syntax profiles, registry identity and analysis limits |
 | results | Nonempty array in argv order |
 
@@ -85,8 +96,10 @@ Every face has:
 - vendorId (nullable string), embeddingPermissions (nullable uint16 raw fsType).
 - Nullable strings: familyName, subfamilyName, fullName, postScriptName, version, copyright, trademark, manufacturer, designer, description, vendorUrl, designerUrl, licenseDescription, licenseUrl.
 
-All documented nullable properties are present as null; zero, false, empty string and null remain distinct. Arrays are never null. The only conditional face properties are:
+All documented nullable properties are present as null; zero, false, empty string and null remain distinct. Arrays are never null. The following face properties are conditional.
 
+- `variationAxes`, present for a declared fvar entry by default and for every face with `--include-variation-axes`.
+- `unicodeCoverage`, present for every face with `--include-unicode-coverage`.
 - `nameRecords`, present with --include-name-records, including an empty array for unavailable records.
 - `licenseAnalysis`, present with --analyze-licenses, including for placeholder faces.
 - `spdxAnalysis`, present with --analyze-spdx, including for placeholder faces.
@@ -135,3 +148,64 @@ dotnet Font.Metadata.Tool.dll inspect Example.ttf --analyze-licenses
 ```
 
 After publication, install the tool package with `dotnet tool install --global Font.Metadata.Tool --version <version>`, or use the portable ZIP with the .NET 10 runtime. Local verification installs into an isolated tool directory, tests actual inspection and validates JSON against the local schema. Nothing is published by local verification.
+
+## External license documents
+
+```shell
+font-metadata inspect-license LICENSE OFL.txt NOTICE --format json
+font-metadata inspect-license --format plain -- -literal-name
+```
+
+`inspect-license` processes only the given paths, in argument order, including repeats. `--format plain|json` is its only report option and plain is the default. Use `--` for literal paths beginning with a dash. A bare `-` before `--` is invalid. Arguments are validated before any path is opened. The command opens each file independently and continues after file errors. The report describes the supplied documents and carries no association to a font or to its NAME records.
+
+The per-file limit is 1,048,576 bytes, including any BOM. Reading stops at EOF or one byte over the limit. SHA-256 is calculated over the original bytes on a full read, even if decoding or analysis subsequently fails. Decoding is strict UTF-8 with an optional initial UTF-8 BOM. A BOM contributes one U+FEFF to UTF-16 offsets and is excluded from the first fragment. Other encodings, including UTF-16 and UTF-32 BOM files, are unsupported. Embedded NUL and any further U+FEFF are ordinary decoded characters. Invalid UTF-8 yields no text evidence. See the [recognition profile and UTF-16 range rules](api.md#external-license-document-analysis).
+
+Plain output includes the path, status, available digest, evidence origin and ranges, SPDX parse status, and diagnostics. Heading fragments and SPDX expressions are quoted and escaped. The normative body is represented by its identifier and range. JSON retains exact fragments.
+
+The command uses the built-in license catalog. The catalog can gain recognized headings and full-text bodies as the package evolves. The shape of JSON v1 and the coordinate system remain the same. [Built-in coverage](api.md#recognition-profile)
+
+| Exit | Meaning for `inspect-license` |
+| --- | --- |
+| 0 | Every file was read, decoded and analyzed within its limits. The report may contain no evidence, unknown identifiers, unresolved references or invalid expressions. |
+| 1 | At least one input byte, document or SPDX parser limit, or invalid encoding. |
+| 2 | Invalid arguments. No report is produced. |
+| 3 | A file I/O or report output failure. File I/O takes precedence over exit 1. |
+| 130 | Observed cancellation. A report in progress may be incomplete. |
+
+Expected per-file failures appear on stdout in the report. Argument, cancellation and report output errors use the shared stderr codes documented above.
+
+### License document JSON contract, schema version 1
+
+The [license document JSON Schema](cli-license.schema.json) describes the separate `inspect-license` report. Output is one UTF-8 JSON object without BOM, followed by a newline. All fields below are present, arrays may be empty, and documented nullable fields have explicit null values. Read fields by name and tolerate additional optional fields.
+
+| Root field | Contents |
+| --- | --- |
+| `schemaVersion` | `1` |
+| `options` | `maxInputBytes`, `maxSourceCharacters`, `maxEvidence` |
+| `spdxContext` | `recognitionProfile` (`license-document-v1`), `syntaxProfile` (`SPDX-2.3.1`), `registry` with `licenseListVersion`, `licensesSha256`, `exceptionsSha256` |
+| `results` | Nonempty array of input results in argument order |
+
+Each result contains:
+
+| Field | Meaning |
+| --- | --- |
+| `source` | `kind` is `file`. `path` is the original argument. |
+| `status` | `complete`, `limitExceeded`, `invalidEncoding` or `ioError` |
+| `sha256` | Lowercase hexadecimal hash of all original bytes, or null for a byte limit or file I/O failure |
+| `hasUtf8Bom` | True or false after a full read, null if the digest is unavailable |
+| `evidence` | Source-ordered evidence entries. File errors, byte limits and invalid UTF-8 yield an empty array. |
+| `diagnostics` | File and document-level diagnostics. Each has `code`, `message`, nullable `sourceStart` and nullable `sourceLength`. |
+
+Document-level codes are `CLI_IO_ERROR`, `CLI_LICENSE_INPUT_LIMIT`, `CLI_LICENSE_INVALID_UTF8`, `FDL_SOURCE_CHARACTER_LIMIT` and `FDL_EVIDENCE_LIMIT`. A native parser limit appears in that evidence entry's `parseDiagnostics`.
+
+| Evidence field | Meaning |
+| --- | --- |
+| `origin` | `spdxDeclaration`, `header` or `fullText` |
+| `identifier` | A header or full-text identifier, or null for declarations and versionless headings |
+| `sourceStart`, `sourceLength`, `sourceText` | Exact fragment coordinates and text in the decoded document |
+| `expressionStart`, `expressionLength`, `expressionText` | Exact SPDX parser input and coordinates in the document, null for other origins |
+| `parseStatus` | `success`, `invalidSyntax`, `limitExceeded` or null for other origins |
+| `parseDiagnostics` | Native parse diagnostics, each with `code`, `severity`, `span` and `message` |
+| `validation` | Native validation summary on parse success, null otherwise |
+
+`validation` contains `hasIdentifierErrors`, `hasUnresolvedReferences`, `diagnosticsTruncated`, `identifierOccurrences`, `references` and `diagnostics`. An occurrence has `identifier`, `role` (`license` or `exception`), `lookupStatus` (`known`, `unknown` or `wrongKind`), nullable `canonicalIdentifier`, nullable `isDeprecated` and `span`. A reference has nullable `documentId`, `licenseId` and `span`. Validation diagnostics use the same fields as parse diagnostics. Native `span` objects have `start` and `length` in UTF-16 code units relative to `expressionText`. Add `expressionStart` to locate the span in the document.

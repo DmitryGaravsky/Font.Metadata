@@ -47,6 +47,7 @@ try {
     $prose = $sourceReadme -replace $fencedCode, ''
     $readmeLinks = [regex]::Matches($prose, '\]\((?<path>(?![a-zA-Z][\w+.-]*:|#)[^)\s]+)\)')
     [xml] $buildProperties = Get-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Raw
+    $packageMetadata = $buildProperties.SelectSingleNode('/Project/PropertyGroup[not(@Condition) and Authors]')
     foreach($id in @('Font.Metadata', 'Font.Metadata.Spdx', 'Font.Metadata.Tool')) {
         $package = [IO.Compression.ZipFile]::OpenRead((Join-Path $feed "$id.$Version.nupkg"))
         try {
@@ -75,15 +76,15 @@ try {
                 $spec.package.metadata.license.InnerText -cne 'MIT') {
                 throw ('Expected the MIT SPDX license expression in {0}' -f $id)
             }
-            if($spec.package.metadata.authors -cne $buildProperties.Project.PropertyGroup.Authors) {
+            if($spec.package.metadata.authors -cne $packageMetadata.Authors) {
                 throw ('Author metadata mismatch in {0}' -f $id)
             }
-            if($spec.package.metadata.projectUrl -cne $buildProperties.Project.PropertyGroup.PackageProjectUrl -or
-                $spec.package.metadata.repository.url -cne $buildProperties.Project.PropertyGroup.RepositoryUrl -or
-                $spec.package.metadata.repository.type -cne $buildProperties.Project.PropertyGroup.RepositoryType) {
+            if($spec.package.metadata.projectUrl -cne $packageMetadata.PackageProjectUrl -or
+                $spec.package.metadata.repository.url -cne $packageMetadata.RepositoryUrl -or
+                $spec.package.metadata.repository.type -cne $packageMetadata.RepositoryType) {
                 throw ('Project/repository metadata mismatch in {0}' -f $id)
             }
-            if($spec.package.metadata.copyright -cne $buildProperties.Project.PropertyGroup.Copyright) {
+            if($spec.package.metadata.copyright -cne $packageMetadata.Copyright) {
                 throw ('Copyright metadata mismatch in {0}' -f $id)
             }
         } finally { $package.Dispose() }
@@ -169,6 +170,16 @@ FontMetadata font = FontMetadataReader.Read(valid);
 if(font.Format != FontFormat.Sfnt || font.Faces.Count != 1 || font.Faces[0].FamilyName != "A" ||
     font.Faces[0].NameTableStatus != FontSectionStatus.Complete || font.Faces[0].Os2TableStatus != FontSectionStatus.Missing)
     throw new Exception(CompleteReadFailureMessage);
+// A format 12 cmap with one supplementary mapping and one signed Fixed fvar axis.
+const string CatalogReadFailureMessage = "Packaged cmap or fvar metadata differs from the fixture.";
+byte[] catalog = Convert.FromHexString(
+    "000100000002002000010000636D6170000000000000002C0000002866766172000000000000005400000024" +
+    "000000010003000A0000000C000C00000000001C00000000000000010001F6000001F60100000001" +
+    "000100000010000200010014000000087767687400008000000100000001800000010100");
+var catalogFace = FontMetadataReader.Read(catalog, new FontReadOptions { IncludeUnicodeCoverage = true, IncludeVariationAxes = true }).Faces[0];
+if(catalogFace.UnicodeCoverage is not { Status: FontSectionStatus.Complete, Format: 12, Ranges: [{ Start: 0x1F600, End: 0x1F601 }] } ||
+    catalogFace.VariationAxes is not { Status: FontSectionStatus.Complete, Axes: [{ Tag: "wght", Minimum: 0.5m, Default: 1m, Maximum: 1.5m, NameId: 256 }] })
+    throw new Exception(CatalogReadFailureMessage);
 byte[] damaged = Convert.FromHexString("0001000000010010000000006E616D65000000000000001C0000002200000002001E000300010409000100020000000300010409000D000200020041D800");
 FontInspectionResult result = FontMetadataReader.Inspect(damaged);
 if(result.Status != FontReadStatus.Partial || result.Faces[0].FamilyName != "A" ||
@@ -185,14 +196,16 @@ foreach(FontInspectionResult inspection in new[] { unknown, result }) {
         try {
             faces.Clear();
             throw new Exception(InspectionFacesFailureMessage);
-        } catch(NotSupportedException) {
+        }
+        catch(NotSupportedException) {
         }
     }
 }
 try {
     FontMetadataReader.Read(damaged);
     throw new Exception(UnexpectedStrictSuccessMessage);
-} catch(FontReadException exception) {
+}
+catch(FontReadException exception) {
     if(exception.Result.Status != FontReadStatus.Partial || exception.Result.Faces[0].FamilyName != "A")
         throw new Exception(LostPartialMetadataMessage);
 }
@@ -217,7 +230,8 @@ foreach(FontMetadata.Face face in new[] { completeFace, partialFace }) {
         try {
             list.Clear();
             throw new Exception(MutableHintsMessage);
-        } catch(NotSupportedException) {
+        }
+        catch(NotSupportedException) {
         }
     }
 }
@@ -235,7 +249,21 @@ if(spdx.Declarations.Count != 1 || spdx.Declarations[0].ExpressionText != "MIT" 
     !spdx.IsSourceComplete || !spdx.IsAnalysisComplete || registry.Identity.LicenseListVersion != "3.29.0")
     throw new Exception(SpdxFailureMessage);
 Console.WriteLine(typeof(Spdx.Expressions.SpdxLicenseRegistry).Assembly.Location);
-
+// External documents have their own evidence and UTF-16 coordinates.
+const string MissingDeclarationMessage = "Packaged document analyzer lost an explicit SPDX declaration.";
+const string IncorrectEvidenceMessage = "Packaged document analysis returned incorrect source evidence.";
+const string document = "\U0001F3B5 NOTICE\r\nSPDX-License-Identifier: MIT OR Apache-2.0\r\n";
+FontLicenseDocumentAnalysis external = FontLicenseDocumentAnalyzer.Analyze(document, registry);
+if(!external.IsAnalysisComplete || external.Evidence.Count != 1)
+    throw new Exception(MissingDeclarationMessage);
+var fragment = external.Evidence[0];
+if(fragment.Origin != FontLicenseDocumentOrigin.SpdxDeclaration ||
+    fragment.ParseResult?.Status != Spdx.Expressions.SpdxParseStatus.Success ||
+    fragment.ValidationResult?.HasIdentifierErrors != false ||
+    fragment.ExpressionText != "MIT OR Apache-2.0" ||
+    fragment.SourceText != document.Substring(fragment.SourceStart, fragment.SourceLength) ||
+    fragment.ExpressionStart != document.IndexOf("MIT OR", StringComparison.Ordinal))
+    throw new Exception(IncorrectEvidenceMessage);
 // Web-container consumers compile the additive API and exercise real packaged readers.
 const string WebContractFailureMessage = "Packaged web-font metadata contract failed.";
 var webLimits = new FontReadLimits {
@@ -269,7 +297,8 @@ foreach(byte[] input in new[] { woff, woff2, eot }) {
         try {
             list.Clear();
             throw new Exception(WebContractFailureMessage);
-        } catch(NotSupportedException) {
+        }
+        catch(NotSupportedException) {
         }
     }
 }
@@ -287,7 +316,6 @@ foreach(int chunkSize in new[] { 1, 7, 4096 }) {
     }
 }
 Console.WriteLine("Packaged WOFF/WOFF2/EOT, provenance, budgets and strict zlib completion verified.");
-
 static byte[] CompressBytes(byte[] bytes, bool brotli) {
     using(var output = new System.IO.MemoryStream()) {
         using(System.IO.Stream encoder = brotli
@@ -443,6 +471,22 @@ sealed class ChunkedInput : System.IO.MemoryStream {
     [IO.Compression.ZipFile]::CreateFromDirectory($payload, $portableZip)
     $portable = Join-Path $run 'portable'
     [IO.Compression.ZipFile]::ExtractToDirectory($portableZip, $portable)
+    $deps = Get-Content -LiteralPath (Join-Path $portable 'Font.Metadata.Tool.deps.json') -Raw | ConvertFrom-Json -AsHashtable
+    $runtimeTarget = $deps.targets[$deps.runtimeTarget.name]
+    foreach($id in @('Font.Metadata.Tool', 'Font.Metadata.Spdx', 'Font.Metadata')) {
+        $key = "$id/$Version"
+        if(!$runtimeTarget.Contains($key) -or !$deps.libraries.Contains($key)) {
+            throw "Tool dependency manifest is missing the packaged version of $id ($Version)."
+        }
+        if($id -ne 'Font.Metadata.Tool') {
+            $dll = Join-Path $portable "$id.dll"
+            $runtimeAsset = $runtimeTarget[$key].runtime["$id.dll"]
+            if($runtimeAsset.assemblyVersion -cne [Reflection.AssemblyName]::GetAssemblyName($dll).Version.ToString() -or
+                $runtimeAsset.fileVersion -cne [Diagnostics.FileVersionInfo]::GetVersionInfo($dll).FileVersion) {
+                throw "Tool dependency manifest versions differ from the packaged $id.dll."
+            }
+        }
+    }
     if((Get-FileHash -LiteralPath (Join-Path $portable 'Spdx.Expressions.dll')).Hash -cne $expectedHash) {
         throw 'Portable SPDX assembly differs from the restored dependency.'
     }

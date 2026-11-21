@@ -1,18 +1,12 @@
-using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using Fonts.Metadata.Internal;
 
 namespace Fonts.Metadata {
     /// <summary>Immutable license indications and completeness of the source name table.</summary>
     public sealed class FontLicenseAnalysis {
         internal FontLicenseAnalysis(bool isSourceComplete, List<FontLicenseHint> hints) {
             IsSourceComplete = isSourceComplete;
-            if(hints.Count == 0)
-                Hints = ReadOnlyCollection<FontLicenseHint>.Empty;
-            else {
-                var snapshot = hints.ToArray();
-                Hints = Array.AsReadOnly(snapshot);
-            }
+            Hints = ResultList<FontLicenseHint>.Snapshot(hints);
         }
         /// <summary>True only for a Complete or Missing name table, independently of recognition coverage.</summary>
         public bool IsSourceComplete { get; }

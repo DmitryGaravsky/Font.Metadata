@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using Spdx.Expressions;
 
 namespace Fonts.Metadata.Tool {
@@ -8,11 +10,7 @@ namespace Fonts.Metadata.Tool {
             writer.WriteStartObject("spdxContext");
             writer.WriteString("recognitionProfile", "font-name13-v1");
             writer.WriteString("syntaxProfile", "SPDX-2.3.1");
-            writer.WriteStartObject("registry");
-            writer.WriteString("licenseListVersion", identity.LicenseListVersion);
-            writer.WriteString("licensesSha256", identity.LicensesSha256);
-            writer.WriteString("exceptionsSha256", identity.ExceptionsSha256);
-            writer.WriteEndObject();
+            SpdxJson.WriteRegistry(writer, identity);
             writer.WriteStartObject("options");
             writer.WriteNumber("maxSourceRecords", spdxOptions.MaxSourceRecords);
             writer.WriteNumber("maxTotalSourceCharacters", spdxOptions.MaxTotalSourceCharacters);
@@ -47,10 +45,10 @@ namespace Fonts.Metadata.Tool {
                 writer.WriteNumber("sourceLength", declaration.SourceLength);
                 writer.WriteString("expressionText", declaration.ExpressionText);
                 writer.WriteString("parseStatus", SpdxReportValues.Status(declaration.ParseResult.Status));
-                WriteSpdxDiagnostics("parseDiagnostics", declaration.ParseResult.Diagnostics);
+                SpdxJson.WriteDiagnostics(writer, "parseDiagnostics", declaration.ParseResult.Diagnostics, Checkpoint);
                 writer.WritePropertyName("validation");
                 if(declaration.ValidationResult is { } validation)
-                    WriteValidation(validation);
+                    SpdxJson.WriteValidation(writer, validation, Checkpoint);
                 else
                     writer.WriteNullValue();
                 writer.WriteEndObject();
@@ -69,17 +67,26 @@ namespace Fonts.Metadata.Tool {
             writer.WriteEndArray();
             writer.WriteEndObject();
         }
-        void WriteValidation(SpdxValidationResult validation) {
+    }
+    internal static class SpdxJson {
+        internal static void WriteRegistry(Utf8JsonWriter writer, SpdxRegistryIdentity identity) {
+            writer.WriteStartObject("registry");
+            writer.WriteString("licenseListVersion", identity.LicenseListVersion);
+            writer.WriteString("licensesSha256", identity.LicensesSha256);
+            writer.WriteString("exceptionsSha256", identity.ExceptionsSha256);
+            writer.WriteEndObject();
+        }
+        internal static void WriteValidation(Utf8JsonWriter writer, SpdxValidationResult validation, Action checkpoint) {
             writer.WriteStartObject();
             writer.WriteBoolean("hasIdentifierErrors", validation.HasIdentifierErrors);
             writer.WriteBoolean("hasUnresolvedReferences", validation.HasUnresolvedReferences);
             writer.WriteBoolean("diagnosticsTruncated", validation.DiagnosticsTruncated);
             writer.WriteStartArray("identifierOccurrences");
             foreach(var occurrence in validation.IdentifierOccurrences) {
-                Checkpoint();
+                checkpoint();
                 writer.WriteStartObject();
                 writer.WriteString("identifier", occurrence.Identifier);
-                WriteSpan(occurrence.Span);
+                WriteSpan(writer, occurrence.Span);
                 writer.WriteString("role", SpdxReportValues.Role(occurrence.Role));
                 writer.WriteString("lookupStatus", SpdxReportValues.Lookup(occurrence.LookupStatus));
                 writer.WriteString("canonicalIdentifier", occurrence.CanonicalIdentifier);
@@ -92,31 +99,31 @@ namespace Fonts.Metadata.Tool {
             writer.WriteEndArray();
             writer.WriteStartArray("references");
             foreach(var reference in validation.References) {
-                Checkpoint();
+                checkpoint();
                 writer.WriteStartObject();
                 writer.WriteString("documentId", reference.DocumentId);
                 writer.WriteString("licenseId", reference.LicenseId);
-                WriteSpan(reference.Span);
+                WriteSpan(writer, reference.Span);
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();
-            WriteSpdxDiagnostics("diagnostics", validation.Diagnostics);
+            WriteDiagnostics(writer, "diagnostics", validation.Diagnostics, checkpoint);
             writer.WriteEndObject();
         }
-        void WriteSpdxDiagnostics(string name, IReadOnlyList<SpdxDiagnostic> diagnostics) {
+        internal static void WriteDiagnostics(Utf8JsonWriter writer, string name, IReadOnlyList<SpdxDiagnostic> diagnostics, Action checkpoint) {
             writer.WriteStartArray(name);
             foreach(var diagnostic in diagnostics) {
-                Checkpoint();
+                checkpoint();
                 writer.WriteStartObject();
                 writer.WriteString("code", diagnostic.Code);
                 writer.WriteString("severity", SpdxReportValues.Severity(diagnostic.Severity));
-                WriteSpan(diagnostic.Span);
+                WriteSpan(writer, diagnostic.Span);
                 writer.WriteString("message", diagnostic.Message);
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();
         }
-        void WriteSpan(SpdxSourceSpan span) {
+        static void WriteSpan(Utf8JsonWriter writer, SpdxSourceSpan span) {
             writer.WriteStartObject("span");
             writer.WriteNumber("start", span.Start);
             writer.WriteNumber("length", span.Length);

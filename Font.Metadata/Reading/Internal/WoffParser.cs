@@ -102,7 +102,9 @@ namespace Fonts.Metadata.Internal {
             }
             var names = ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.NameTag));
             var os2 = ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.Os2Tag));
-            var face = context.CreateFace(0, flavor, names, os2, valid);
+            var cmap = context.IncludeUnicodeCoverage ? ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.CmapTag)) : null;
+            var fvar = context.IncludeVariationAxes ? ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.FvarTag)) : null;
+            var face = context.CreateFace(0, flavor, names, os2, valid, cmap: cmap, fvar: fvar);
             context.Faces.Add(face);
         }
         static bool AddOptional(ReadOnlySpan<byte> data, ReadingContext context, List<Entry> ranges,
@@ -159,12 +161,12 @@ namespace Fonts.Metadata.Internal {
             if(entry == null)
                 return TableMetadata.Empty(FontSectionStatus.Missing);
             if(!entry.Readable)
-                return TableMetadata.Empty(FontSectionStatus.Invalid);
+                return TableMetadata.UnreadableEntry(entry.Tag, FontSectionStatus.Invalid);
             string tag = ContainerLayout.TagText(entry.Tag);
             if(entry.Original > context.Limits.MaxTableBytes) {
-                context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, entry.Start, 0, tag,
-                    FontDiagnosticCategory.LimitExceeded);
-                return TableMetadata.Empty(FontSectionStatus.NotRead);
+                var diagnostic = new FontDiagnostic(FontDiagnosticCodes.LimitExceeded, FontDiagnosticSeverity.Error,
+                    FontDiagnosticCategory.LimitExceeded, ContainerMessages.Limit, 0, tag, entry.Start);
+                return context.TableFailure(entry.Tag, FontSectionStatus.NotRead, diagnostic);
             }
             var content = data.Slice((int)entry.Start, (int)entry.Length);
             if(entry.Length == entry.Original)
@@ -182,13 +184,14 @@ namespace Fonts.Metadata.Internal {
                 }
             }
             catch(DecodeLimitException) {
-                context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, entry.Start, 0, tag,
-                    FontDiagnosticCategory.LimitExceeded);
-                return TableMetadata.Empty(FontSectionStatus.NotRead);
+                var diagnostic = new FontDiagnostic(FontDiagnosticCodes.LimitExceeded, FontDiagnosticSeverity.Error,
+                    FontDiagnosticCategory.LimitExceeded, ContainerMessages.Limit, 0, tag, entry.Start);
+                return context.TableFailure(entry.Tag, FontSectionStatus.NotRead, diagnostic);
             }
             catch(InvalidDataException) {
-                context.Error(FontDiagnosticCodes.InvalidCompressedData, ContainerMessages.Compression, entry.Start, 0, tag);
-                return TableMetadata.Empty(FontSectionStatus.Invalid);
+                var diagnostic = new FontDiagnostic(FontDiagnosticCodes.InvalidCompressedData, FontDiagnosticSeverity.Error,
+                    FontDiagnosticCategory.MalformedData, ContainerMessages.Compression, 0, tag, entry.Start);
+                return context.TableFailure(entry.Tag, FontSectionStatus.Invalid, diagnostic);
             }
         }
         sealed class Entry {

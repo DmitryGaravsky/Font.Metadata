@@ -2,7 +2,7 @@ using System;
 
 namespace Fonts.Metadata {
     /// <summary>Immutable processing budgets. These bound work, not the exact managed heap size.</summary>
-    public sealed class FontReadLimits {
+    public sealed partial class FontReadLimits {
         const int Mebibyte = 1024 * 1024;
         const int DefaultMaxInputBytes = 128 * Mebibyte;
         const int DefaultMaxTableBytes = 16 * Mebibyte;
@@ -12,7 +12,6 @@ namespace Fonts.Metadata {
         const int DefaultMaxNameStringBytes = 4 * Mebibyte;
         const int DefaultMaxTotalNameStringBytes = 16 * Mebibyte;
         const int DefaultMaxDiagnostics = 256;
-
         /// <summary>Maximum input bytes. Oversized inputs are rejected before parsing; streams probe at most one additional byte.</summary>
         public int MaxInputBytes { get; init; } = DefaultMaxInputBytes;
         /// <summary>Maximum size of a retained metadata table; discarded WOFF2/MTX output still consumes decompression budgets.</summary>
@@ -27,7 +26,7 @@ namespace Fonts.Metadata {
         public int MaxNameStringBytes { get; init; } = DefaultMaxNameStringBytes;
         /// <summary>Maximum encoded string bytes attempted across all tables and EOT header strings; shared tables are counted once.</summary>
         public int MaxTotalNameStringBytes { get; init; } = DefaultMaxTotalNameStringBytes;
-        /// <summary>Maximum reported diagnostics, including the final suppression diagnostic. Must be positive.</summary>
+        /// <summary>Maximum diagnostic slots across the inspection and distinct optional table sections, including suppression markers. Must be positive.</summary>
         public int MaxDiagnostics { get; init; } = DefaultMaxDiagnostics;
         /// <summary>Maximum bytes produced by all decompression stages, including discarded output and failed attempts.</summary>
         public int MaxTotalDecodedBytes { get; init; } = 128 * Mebibyte;
@@ -42,6 +41,8 @@ namespace Fonts.Metadata {
         /// <summary>Maximum live controlled decoded-buffer capacities, LZ windows and XOR copies; not a total heap limit.</summary>
         public int MaxRetainedDecodedBytes { get; init; } = 64 * Mebibyte;
         internal void Validate() {
+            ValidateUnicodeCoverageLimits();
+            ValidateVariationAxisLimits();
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxInputBytes, nameof(MaxInputBytes));
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxTableBytes, nameof(MaxTableBytes));
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxFaces, nameof(MaxFaces));

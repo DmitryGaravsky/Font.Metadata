@@ -5,18 +5,20 @@
 | FontReadStatus | Meaning |
 | --- | --- |
 | NotRecognized | No recognized signature at the supplied origin; Metadata is null |
-| Complete | All supported metadata was processed without loss; warnings may exist |
+| Complete | The container and baseline metadata (name, OS/2 and applicable EOT data) were processed without loss. Optional sections report their own status. |
 | Partial | Usable metadata survives malformed data, an unsupported feature or a limit |
 | Failed | A data failure or resource limit prevented usable metadata extraction |
 | Unsupported | A recognized format, version or encoding is unavailable, without usable metadata |
 
 A recognized container normally supplies a `FontMetadata` object even if its Faces collection is empty. An oversized unrecognized input returns Failed with null Metadata because the input limit takes precedence over parsing. Container recognition or a placeholder face alone does not count as usable extracted metadata.
 
-A readable table (including a valid empty name table) counts as processed metadata. A valid face directory proving both supported tables absent can also be Complete. Missing fields should always be interpreted alongside table statuses.
+A readable table (including a valid empty name table) counts as processed metadata. A valid face directory proving both name and OS/2 absent can also be Complete. Missing fields should always be interpreted alongside table statuses.
 
 ## Per-table status
 
-Each face exposes `NameTableStatus` and `Os2TableStatus`.
+Each face exposes `NameTableStatus` and `Os2TableStatus`. When inspecting Unicode coverage or variation axes, also read `UnicodeCoverage.Status` or `VariationAxes.Status` and the corresponding section diagnostics.
+
+For example, `font-metadata inspect symbols.ttc --include-unicode-coverage --format json` can exit with code 0 and report a file `status` of `complete`. A face with only a Windows symbol cmap reports `unicodeCoverage.status` of `unsupported` and the section diagnostic `FM_UNSUPPORTED_CMAP_SUBTABLE`. A face in the same collection with no cmap reports `missing`.
 
 | FontSectionStatus | Meaning |
 | --- | --- |
@@ -47,7 +49,7 @@ EOT header completeness is independent of face statuses. A complete header can c
 - `Message`: English explanation for humans; do not parse it for policy decisions.
 - Nullable `FaceIndex`, `TableTag`, `ByteOffset`, `TableByteOffset`: available source context.
 
-Offsets are relative to the supplied input origin, not the original file position of a slice or stream. Shared-table diagnostics are reported with each referencing face's original index. No caller file path or source bytes are inserted into messages.
+Offsets are relative to the supplied input origin, not the original file position of a slice or stream. Baseline table diagnostics carry the referencing face's original index when available. For shared optional sections, the CLI prints the same diagnostic under each referencing face. Its `faceIndex` can be null. No caller file path or source bytes are inserted into messages.
 
 TableByteOffset is the position inside a logical decoded metadata table, when known. Directory/framing and whole-stream errors do not invent a table offset.
 
@@ -78,8 +80,14 @@ Decoded offsets are never added to a compressed anchor. Both coordinates remain 
 | FM_UNSUPPORTED_ENCODING | Unsupported name platform/encoding pair |
 | FM_LIMIT_EXCEEDED | Configured processing budget exhausted |
 | FM_NONCONFORMANT_DIRECTORY | Safe but unsorted or unaligned directory data |
+| FM_INVALID_CMAP_TABLE | Invalid structure or mapping in the selected cmap |
+| FM_UNSUPPORTED_CMAP_SUBTABLE | No supported Unicode format 4 or 12 subtable |
+| FM_INVALID_FVAR_TABLE | Invalid fvar header or axis record |
+| FM_NONCONFORMANT_FVAR_TABLE | Safely retained or ignored a nonconforming fvar field (Warning) |
 | FM_DIAGNOSTICS_TRUNCATED | Additional diagnostics suppressed by MaxDiagnostics |
 
-Diagnostic output is bounded. When it overflows, its last slot becomes a suppression marker; previously determined incomplete states are preserved. Even with MaxDiagnostics set to 1, an error cannot be silently converted into Complete. Diagnostic suppression conservatively makes the overall result incomplete, including when the suppressed messages were warnings.
+`MaxDiagnostics` bounds the inspection diagnostics and diagnostics retained by distinct optional sections together. Inspection diagnostics take priority. Overflow of the inspection list replaces its last entry with a suppression marker and makes the overall result incomplete, including when the suppressed messages were warnings.
+
+The optional cmap and fvar sections share any remaining slots. Their last available slot carries a suppression marker on overflow. If the inspection list has used every slot, the section lists are empty. Suppression preserves each section's reading status. Faces sharing a table refer to the same section. The CLI projects that section under each referencing face.
 
 Expected malformed-data failures produce results through Inspect. Invalid arguments, cancellation, I/O failures and unexpected runtime errors still throw. Read applies strict success semantics to the same result and retains it on the appropriate exception; see [API](api.md).

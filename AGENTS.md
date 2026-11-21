@@ -61,22 +61,23 @@ These invariants apply to implemented and future readers:
 
 ## Coding conventions
 
-- Use nullable reference types and treat compiler warnings as errors.
+- Use nullable reference types and explicit `using` directives. Treat compiler warnings as errors.
 - Centralize dependency versions in Directory.Packages.props and use NUnit for tests.
 - Use narrow visibility, omit private when it is the default, and make stateless helpers static.
 - Use block-bodied implementations. Put method and constructor bodies on separate lines, including one-statement helpers and test doubles; keep only simple property accessors compact. Keep argument grouping readable.
+- Omit blank lines inside C# namespace, type and method bodies in library code, tests and examples. This includes gaps between types, before or after class and struct declarations, between members and around local functions. Where logical blocks need separation, use a concise single-line comment explaining the block. Avoid decorative separator comments.
 - Put if and loop bodies on the next line. Short closing else and finally branches may stay on one line when readable, for example `else protectedRanges.Add(range);` or `finally { stream.Dispose(); }`. Keep return, continue, break and throw on separate lines.
 - Use named local variables for intermediate results instead of nesting parsing, snapshot creation and result construction in a single expression.
 - Default absent collections on the receiving model where useful. Use ReadOnlyCollection<T>.Empty and ReadOnlyDictionary<TKey, TValue>.Empty instead of wrapping empty arrays or allocating empty dictionaries; preserve immutable result collections.
 - Express four-byte textual signatures with UTF-8 literals and explicit big-endian conversion when this is clearer than hexadecimal values. Keep genuinely numeric versions and independent test vectors numeric.
 - Use explicit using blocks for meaningful resource lifetimes; use braces for multiline bodies. Place disposal close to construction and exception filters on continuation lines.
-- Follow .editorconfig and .gitattributes; do not inherit unrelated parent-repository settings.
-- Write XML documentation for public API contracts. Use ordinary concise comments for implementation decisions.
+- Follow the repository's .editorconfig and .gitattributes. Do not inherit unrelated parent-repository settings. Use UTF-8 and LF line endings for authored text files. In C#, use block-scoped namespaces and the configured brace and spacing conventions.
+- Write XML documentation for public API contracts in English. Use ordinary concise comments for implementation decisions.
 - Replace binary-format magic numbers with named constants for signatures, versions, field offsets, sizes and flags. Keep ordinary loop/index literals where their meaning is clear.
 - Explain non-obvious binary parsing and recovery decisions with short comments and links to primary format specifications; do not narrate obvious statements.
 - Extract complex predicates and branching into focused helpers with meaningful names when this improves readability.
 - In C#, keep diagnostic message text in named constants rather than embedding message literals in parsing/control-flow code. In PowerShell, keep messages inline; do not introduce message constants or lookup tables. Retain readable conditions and multiline control flow in scripts.
-- Keep test fixtures independent of production format constants. Name repeated layout values in test helpers; preserve explicit boundary cases, expected values and fixed binary vectors as independent test evidence.
+- Keep test fixtures independent of production format constants and algorithms. Name repeated layout values in test helpers. Preserve explicit boundary cases, expected values and fixed binary vectors as independent test evidence. Do not automatically replace expected values with the current implementation's output.
 - Keep meaningful public contracts even if current consumers do not yet use every member. Validate review claims against actual target frameworks before changing accessibility or behavior.
 
 ## Verification and documentation

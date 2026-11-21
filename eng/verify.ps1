@@ -24,7 +24,8 @@ Push-Location $root
 try {
     & (Join-Path $PSScriptRoot 'test-release.ps1')
     Invoke-DotNet @('restore', 'Font.Metadata.slnx', '--configfile', $restoreConfig, "-p:Version=$Version")
-    Invoke-DotNet @('build', 'Font.Metadata.slnx', '-c', 'Release', '--no-restore', "-p:Version=$Version")
+    # Regenerate dependency manifests when this checkout was last built with a different Version.
+    Invoke-DotNet @('build', 'Font.Metadata.slnx', '-c', 'Release', '--no-incremental', '--no-restore', "-p:Version=$Version")
     Invoke-DotNet @('test', 'Font.Metadata.Tests/Font.Metadata.Tests.csproj',
         '-c', 'Release', '--no-build', '--no-restore', "-p:Version=$Version",
         '--logger', 'trx;LogFilePrefix=library', '--results-directory', 'artifacts/test-results/library')

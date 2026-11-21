@@ -30,4 +30,4 @@ Workflow action usage follows the maintainers' documentation: [checkout](https:/
 
 ## Published SPDX dependency
 
-Local, build/test CI and release verification restore the exact Spdx.Expressions 1.0.0 package from nuget.org through the repository configuration. No additional checkout or producer build is required. Package acceptance uses the restored artifact in a closed local feed with fresh consumer caches and checks DLL identity, notices, installed-tool behavior and the portable payload. See [dependency verification](spdx.md#build-and-verification).
+Local, build/test CI and release verification restore the exact Spdx.Expressions 1.1.0 package from nuget.org through the repository configuration. No additional checkout or producer build is required. Package acceptance uses the restored artifact in a closed local feed with fresh consumer caches and checks DLL identity, notices, installed-tool behavior and the portable payload. See [dependency verification](spdx.md#build-and-verification).

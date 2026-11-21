@@ -1,6 +1,6 @@
 namespace Fonts.Metadata {
     /// <summary>Stable diagnostic identifiers. Message text is not a machine-readable contract.</summary>
-    public static class FontDiagnosticCodes {
+    public static partial class FontDiagnosticCodes {
         /// <summary>A container header or block layout is invalid.</summary>
         public const string InvalidContainer = "FM_INVALID_CONTAINER";
         /// <summary>A compressed stream is invalid, truncated or has excess input/output.</summary>

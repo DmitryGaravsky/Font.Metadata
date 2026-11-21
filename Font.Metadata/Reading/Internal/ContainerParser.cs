@@ -1,11 +1,13 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Threading;
 
 namespace Fonts.Metadata.Internal {
     internal static class ContainerParser {
-        internal static FontInspectionResult Parse(ReadOnlySpan<byte> data, FontReadLimits limits, CancellationToken token) {
-            var context = new ReadingContext(limits, token);
+        internal static FontInspectionResult Parse(ReadOnlySpan<byte> data, FontReadOptions options, CancellationToken token) {
+            var context = new ReadingContext(options.Limits, token) {
+                IncludeUnicodeCoverage = options.IncludeUnicodeCoverage,
+                IncludeVariationAxes = options.IncludeVariationAxes
+            };
             token.ThrowIfCancellationRequested();
             var format = SfntParser.Recognize(data);
             if(format == FontFormat.Unknown) {
@@ -29,9 +31,9 @@ namespace Fonts.Metadata.Internal {
                     break;
             }
             token.ThrowIfCancellationRequested();
+            context.FinishSectionDiagnostics();
             var status = context.GetStatus();
-            var faces = context.Faces.ToArray();
-            var faceSnapshot = faces.Length == 0 ? ReadOnlyCollection<FontMetadata.Face>.Empty : Array.AsReadOnly(faces);
+            var faceSnapshot = ResultList<FontMetadata.Face>.Snapshot(context.Faces);
             var eotStatus = format == FontFormat.Eot ? context.EotStatus : FontSectionStatus.Missing;
             var metadata = new FontMetadata(format, faceSnapshot, context.Eot, eotStatus);
             var diagnostics = context.Diagnostics.Freeze();
