@@ -1,7 +1,7 @@
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
-using System;
 using static Fonts.Metadata.Internal.NameTableDefinitions;
 
 namespace Fonts.Metadata.Internal {
@@ -13,7 +13,6 @@ namespace Fonts.Metadata.Internal {
         const int VendorIdOffset = 58, VendorIdLength = 4;
         const int Os2MetadataPrefixSize = VendorIdOffset + VendorIdLength;
         const byte FirstPrintableAscii = 0x20, LastPrintableAscii = 0x7e;
-
         static readonly Encoding Unicode = new UnicodeEncoding(true, false, true);
         internal static ushort U16(ReadOnlySpan<byte> data, int offset) {
             return BinaryPrimitives.ReadUInt16BigEndian(data.Slice(offset, sizeof(ushort)));
@@ -21,7 +20,6 @@ namespace Fonts.Metadata.Internal {
         internal static uint U32(ReadOnlySpan<byte> data, int offset) {
             return BinaryPrimitives.ReadUInt32BigEndian(data.Slice(offset, sizeof(uint)));
         }
-
         // name formats 0/1: six-byte header, twelve-byte name records and optional four-byte language records.
         // Offsets into string storage are relative to storageOffset, not to the table origin.
         // https://learn.microsoft.com/en-us/typography/opentype/spec/name
@@ -39,11 +37,13 @@ namespace Fonts.Metadata.Internal {
             }
             if(table.Length < sizeof(ushort)) {
                 Error(FontDiagnosticCodes.InvalidOs2Table, Messages.Os2VersionTruncated, 0);
-                return new TableMetadata { Status = FontSectionStatus.Invalid, Diagnostics = diagnostics.Freeze() };
+                var snapshot = diagnostics.Freeze();
+                return new TableMetadata { Status = FontSectionStatus.Invalid, Diagnostics = snapshot };
             }
             if(U16(table, Os2VersionOffset) > LastSupportedOs2Version) {
                 Error(FontDiagnosticCodes.UnsupportedTableVersion, Messages.UnsupportedOs2Version, 0, FontDiagnosticCategory.UnsupportedFeature);
-                return new TableMetadata { Status = FontSectionStatus.Unsupported, Diagnostics = diagnostics.Freeze() };
+                var snapshot = diagnostics.Freeze();
+                return new TableMetadata { Status = FontSectionStatus.Unsupported, Diagnostics = snapshot };
             }
             // Metadata prefix shared by OS/2 versions 0..5: fsType at 8, achVendID at 58 (four bytes).
             // Later metrics are outside this reader's contract. https://learn.microsoft.com/en-us/typography/opentype/spec/os2
@@ -59,11 +59,12 @@ namespace Fonts.Metadata.Internal {
                 else
                     Error(FontDiagnosticCodes.InvalidOs2Table, Messages.InvalidVendorId, VendorIdOffset);
             }
+            var diagnosticSnapshot = diagnostics.Freeze();
             return new TableMetadata {
                 Status = GetOs2Status(diagnostics.HasErrors, permissions.HasValue),
                 Permissions = permissions,
                 VendorId = vendor,
-                Diagnostics = diagnostics.Freeze()
+                Diagnostics = diagnosticSnapshot
             };
         }
         static bool IsVendorIdReadable(ReadOnlySpan<byte> bytes) {
@@ -149,7 +150,6 @@ namespace Fonts.Metadata.Internal {
             const int NameIdOffset = 6, StringLengthOffset = 8, StringOffsetField = 10;
             const int LanguageRecordSize = 4, LanguageStringOffsetField = 2;
             const int Utf16CodeUnitSize = sizeof(ushort);
-
             readonly ReadOnlySpan<byte> table;
             readonly SourceLocation origin;
             readonly ReadingContext context;
@@ -176,7 +176,7 @@ namespace Fonts.Metadata.Internal {
             }
             TableMetadata Result() {
                 var status = GetStatus();
-                var recordSnapshot = Array.AsReadOnly(records.ToArray());
+                var recordSnapshot = ResultList<FontMetadata.NameRecord>.Snapshot(records);
                 var preferredNames = NameSelection.Select(records, context.Token);
                 var diagnosticSnapshot = diagnostics.Freeze();
                 return new TableMetadata {

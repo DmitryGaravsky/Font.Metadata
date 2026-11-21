@@ -18,12 +18,15 @@ FontInspectionResult
 │   │   ├── Source                  FontFaceSource (Container / EotMain / EotEudc)
 │   │   ├── NameTableStatus         FontSectionStatus
 │   │   ├── Os2TableStatus          FontSectionStatus
+│   │   ├── UnicodeCoverage?        FontUnicodeCoverage
+│   │   ├── VariationAxes?          FontVariationAxes
 │   │   └── NameRecords             IReadOnlyList<FontMetadata.NameRecord>
 │   ├── EotHeaderStatus            FontSectionStatus
 │   └── Eot?                       FontMetadata.EotHeader (independent facts)
 └── Diagnostics                    IReadOnlyList<FontDiagnostic>
 
 FontReadOptions
+├── IncludeUnicodeCoverage / IncludeVariationAxes
 └── Limits                         FontReadLimits
 
 FontLicenseAnalyzer.Analyze(Face)
@@ -34,17 +37,23 @@ FontLicenseAnalyzer.Analyze(Face)
         └── SourceRecord           original FontMetadata.NameRecord
 ```
 
-The metadata and diagnostic types are sealed, immutable results with internal constructors. Nested models do not capture an outer instance. Collections do not expose mutable backing storage; results retain neither input buffers nor streams. An empty collection or a null property is interpreted together with its status, rather than as proof of absent source data.
+Metadata and diagnostics are immutable. Scalar ranges are readonly value types. Nested models do not capture an outer instance. Collections do not expose mutable backing storage; results retain neither input buffers nor streams. An empty collection or a null property is interpreted together with its status, rather than as proof of absent source data.
 
 ## Compatibility and evolution
 
-The pre-1.0 API is experimental; stable source and binary compatibility has not been declared. Pin the package version used by an integration and review documented changes before upgrading. A development version string alone does not identify the evaluated bytes; validation reports also record the package SHA-256.
+The 1.x compatibility policy takes effect with 1.0.0. During preparation, the published `0.1.0-preview.1` packages are the comparison baseline for both libraries. Pin a preview version when evaluating an integration.
 
-Changes to names, signatures, nullability, ownership, status meanings, limits, selection or license-recognition behavior require explicit compatibility review. Adding a property or enum member is not automatically harmless: consumers may use exhaustive switches or their own serializers. Handle unfamiliar values explicitly rather than treating them as `Complete`, and do not rely on enum ordinals or diagnostic message text as a wire protocol.
+| Surface | Commitment for 1.x |
+| --- | --- |
+| .NET callers | Existing supported calls continue to compile and existing compiled net10.0 consumers continue to run. Preserve public type and assembly identities, member signatures, parameter names, optional argument defaults and nullability contracts. Review new overloads for ambiguity. Removing a supported target or making an incompatible API change requires a new major version. |
+| SPDX adapter | The public registry, parser and validation types from Spdx.Expressions are part of the adapter contract. Review the exact dependency version and its types when upgrading. The core reader stays independently usable. |
+| Results and failures | Preserve immutable results, stream ownership and position rules, cancellation and I/O exceptions, and strict `Read` versus recoverable `Inspect` behavior. A verified zero, an empty value, an unavailable value and a proven missing section keep their distinct meanings. Preserve face and record source indexes, including gaps, and the documented coordinate system for each offset. |
+| Enums and diagnostics | Existing enum values keep their numeric values and meanings. Handle unfamiliar values explicitly. Diagnostic codes and license rule IDs keep their meanings. Use codes for decisions and messages for display. |
+| Processing and recognition | Review changes to default limits, preferred-name selection and license recognition against existing inputs. Document observable fixes and rule or catalog updates. Retain exact source evidence, distinguish recognition and syntax profiles from registry identity, and preserve the meaning of source and analysis completeness. |
 
-New result properties must preserve immutability and distinguish unavailable data from verified empty or zero values. A new metadata section must define its completeness and recovery semantics before implementation. Public API changes require real-package consumer checks; the stable-release compatibility policy and API compatibility automation remain work to complete before 1.0.
+An optional analysis owns its completeness, limits and diagnostics. A face-level Unicode coverage or variation-axis analysis may be incomplete while the default inspection still returns its verified names. Container-level evidence would retain its container source even when the container holds several faces. With such analyses disabled, existing calls retain their status and exception semantics, including errors already detected by container framing checks.
 
-The CLI has its own [versioned JSON contract](cli.md#json-contract-schema-version-1). Library types are not a serialization schema; a breaking JSON shape, type or meaning change requires a new schema version. Recognition changes must be documented even when the JSON shape is unchanged.
+The CLI publishes its own [versioned JSON contract](cli.md#json-contract-schema-version-1). The [package compatibility check](testing.md#package-compatibility) covers the two library packages.
 
 ## Ordinary reading
 
@@ -75,7 +84,6 @@ using Fonts.Metadata;
 
 FontInspectionResult result = FontMetadataReader.InspectFile("example.ttc");
 Console.WriteLine($"Read status: {result.Status}");
-
 foreach(FontMetadata.Face face in result.Faces) {
     Console.WriteLine($"Face {face.Index}: name={face.NameTableStatus}, OS/2={face.Os2TableStatus}");
     foreach(FontMetadata.NameRecord record in face.NameRecords) {
@@ -149,8 +157,11 @@ Options and limits are sealed with init-only properties, so an operation can saf
 | `MaxNameRecords` | 4096 | Source records per distinct name table, including invalid ones |
 | `MaxNameStringBytes` | 4 MiB | Distinct encoded string bytes attempted per name table (including referenced language tags), or per EOT header (four strings plus RootString) |
 | `MaxTotalNameStringBytes` | 16 MiB | Same string work across the whole container |
-| `MaxDiagnostics` | 256 | Reported diagnostics, including any final suppression marker |
+| `MaxDiagnostics` | 256 | Container-wide slots for baseline and optional section diagnostics combined, including suppression markers |
 | `MaxTotalDecodedBytes` | 128 MiB | All decompression output/work, including discarded bytes, secondary MTX streams and failed attempts |
+| `MaxTotalCmapWork` | 1,048,576 | cmap encoding records, groups, segments and individual glyph-array entries examined per container |
+| `MaxTotalUnicodeRanges` | 65,536 | Compact ranges retained from distinct cmap tables per container |
+| `MaxTotalVariationAxes` | 16,384 | fvar axis records examined across distinct tables, including invalid records |
 | `MaxMtxPayloadBytes` | 64 MiB | LZ plus optional RLE output of all three streams of one MTX payload |
 | `MaxExpansionRatio` | 1000 | Work per compressed unit divided by its compressed input length |
 | `MaxWoff2Tables` | 16384 | Global WOFF2 dictionary entries |
@@ -158,6 +169,8 @@ Options and limits are sealed with init-only properties, so an operation can saf
 | `MaxRetainedDecodedBytes` | 64 MiB | Simultaneously live controlled buffer capacities, including LZ windows, XOR copies and resize overlap |
 
 All limits must be positive. `MaxInputBytes` must also be at most `Array.MaxLength - 1`. Invalid options throw before reading. These limits bound processing work, not exact managed heap use; strings, records, diagnostics and buffering have additional overhead.
+
+Baseline diagnostics take priority across all faces. Distinct optional sections share the remaining diagnostic slots in processing order. A shared table reuses its section and diagnostics on each referencing face. If optional messages overflow the remaining slots, the last available optional slot contains `FM_DIAGNOSTICS_TRUNCATED`. If baseline diagnostics use every slot, the optional lists are empty. Section statuses still describe the underlying data.
 
 Repeated string references with the same range and encoding are decoded once per table. Exact shared table ranges with the same tag are parsed once across faces, including preferred-value selection. Repeated references to decoded strings reuse normalization results, including blank values. Invalid decode attempts count against string budgets; recovery never resets budgets. Strings that exceed a budget are skipped, allowing later smaller or already decoded strings to survive. A limit is reported explicitly and never silently produces `Complete`.
 
@@ -180,6 +193,28 @@ A WOFF2 face limit still requires bounded traversal of the remaining descriptors
 Preferred string properties are `FamilyName`, `SubfamilyName`, `FullName`, `PostScriptName`, `Version`, `Copyright`, `Trademark`, `Manufacturer`, `Designer`, `Description`, `VendorUrl`, `DesignerUrl`, `LicenseDescription` and `LicenseUrl`.
 
 Each `FontMetadata.NameRecord` exposes `Index`, `NameId`, `PlatformId`, `EncodingId`, `LanguageId`, nullable `LanguageTag`, and unmodified decoded `Value`. Selection rules and supported encodings are in [Formats](formats.md).
+
+## Optional catalog metadata
+
+```csharp
+using System;
+using Fonts.Metadata;
+
+var options = new FontReadOptions { IncludeUnicodeCoverage = true, IncludeVariationAxes = true };
+var result = FontMetadataReader.InspectFile("example.ttf", options);
+foreach(var face in result.Faces) {
+    if(face.UnicodeCoverage is { Status: FontSectionStatus.Complete } coverage) {
+        foreach(var range in coverage.Ranges)
+            Console.WriteLine($"U+{range.Start:X4}..U+{range.End:X4}");
+    }
+    if(face.VariationAxes is { } variations) {
+        foreach(var axis in variations.Axes)
+            Console.WriteLine($"{axis.Tag} [{axis.Minimum}, {axis.Maximum}] (name ID {axis.NameId})");
+    }
+}
+```
+
+Both library switches default to false, leaving the corresponding face property null. With fvar reading enabled, `HasTableEntry` records whether the reader found an fvar directory entry, independently of how many axes it recovered. The CLI uses this evidence to show declared fvar tables by default. Its explicit audit flag also shows faces where the table is missing or its presence is unknown. A requested section always has a status. A partial result can retain verified ranges or axes. Its diagnostics belong to that face’s section and may be shared when several faces reference the same physical table. See [format boundaries](formats.md#optional-face-tables).
 
 ## License analysis
 
@@ -212,3 +247,95 @@ There is no embedded-font search API. The [CLI](cli.md) exposes inspection and o
 ## SPDX expression analysis
 
 The optional `Font.Metadata.Spdx` package adds `FontSpdxAnalyzer`, `FontSpdxOptions`, `FontSpdxAnalysis`, `FontSpdxDeclaration` and `FontSpdxDiagnostic` in `Fonts.Metadata`. It reuses native AST and validation types from the `Spdx.Expressions` namespace; import that namespace when supplying the registry or parser/validation options. See [the complete API, recognition and limit contract](spdx.md). The reader and legacy hint API remain independent.
+
+## External license document analysis
+
+`Font.Metadata.Spdx` also exposes an offline document analyzer in `Fonts.Metadata`.
+
+```csharp
+using System;
+using Fonts.Metadata;
+using Spdx.Expressions;
+
+string text = "Components\r\nSPDX-License-Identifier: MIT OR Apache-2.0\r\n";
+FontLicenseDocumentAnalysis result =
+    FontLicenseDocumentAnalyzer.Analyze(text, SpdxLicenseRegistry.Default);
+foreach(FontLicenseDocumentEvidence item in result.Evidence)
+    Console.WriteLine($"{item.Origin} [{item.SourceStart}, {item.SourceLength}]: {item.SourceText}");
+```
+
+`Analyze(string text, SpdxLicenseRegistry registry, FontLicenseDocumentOptions? options = null, CancellationToken cancellationToken = default)` accepts already decoded text. The caller owns file discovery, decoding and document-to-font association. Analysis performs no I/O and makes no licensing decision. A null `text` or `registry` throws `ArgumentNullException`. A limit below 1 throws `ArgumentOutOfRangeException`. Cancellation throws `OperationCanceledException` without returning a partial result.
+
+`FontLicenseDocumentAnalysis` contains `IsAnalysisComplete`, `RegistryIdentity`, a read-only `Evidence` list in source order and a nullable document-level `Diagnostic` of type `FontLicenseDocumentDiagnostic`. Every `FontLicenseDocumentEvidence` contains `Origin`, optional `Identifier`, and `SourceStart`, `SourceLength`, `SourceText`. Declarations additionally expose `ExpressionStart`, `ExpressionLength`, `ExpressionText`, `ParseResult` and nullable `ValidationResult`. Successful parses keep the native immutable SPDX AST and validation results. References remain unresolved and multiple declarations remain independent.
+
+All document offsets are zero-based UTF-16 code-unit indexes into the supplied string. `SourceText` equals `text.Substring(SourceStart, SourceLength)`. A single initial U+FEFF is ignored for recognition and counted in offsets. A declaration's source fragment is the entire line excluding its BOM and line ending. Its parser input excludes surrounding ASCII spaces and tabs after the colon. An empty suffix has zero length and starts immediately after the colon. Native parse and validation spans are relative to `ExpressionText`; adding `ExpressionStart` maps a native span start to the document. Headers and bodies exclude their outer ASCII whitespace and retain their interior whitespace.
+
+### Recognition profile
+
+The `license-document-v1` recognition rules produce three kinds of evidence.
+
+| Origin | Recognized evidence |
+| --- | --- |
+| `SpdxDeclaration` | The case-sensitive prefix `SPDX-License-Identifier:` at the start of a line after optional spaces/tabs, with the remainder as one expression. CRLF, LF and CR are line endings. Every admitted attempt is retained, including empty, invalid, unknown and repeated declarations. |
+| `Header` | An exact standalone heading or introductory phrase listed in the catalog. Some phrases can wrap across lines. A heading declared unversioned in the catalog has a null identifier. |
+| `FullText` | A complete body whose normalized SHA-256 matches a catalog entry. A heading retains its own range and identifier independently. |
+
+Full-text recognition accepts a standalone body after optional front matter drawn from the following list. The body must continue to the end of the document except for trailing ASCII whitespace.
+
+- Recognized headings and leading explicit SPDX declarations. A heading and a complete normative body can identify different licenses. Both entries retain their own source text.
+- Single lines beginning with `Copyright ` (case-insensitive) or `© ` followed by a value.
+- License-specific front matter declared in the catalog. For example, OFL accepts its FAQ lines and hyphen separators, and MIT accepts `All rights reserved.` after a copyright line. If multiple license-specific lines occur, the matched body must belong to a profile that admits all of them. [Microsoft MIT heading and copyright example](https://github.com/dotnet/dotnet/blob/main/LICENSE.TXT)
+
+To compute the SHA-256 of a body, trim surrounding ASCII space, tab, CR and LF, replace each internal run of those characters with one ASCII space, and map curly double quotes to ASCII double quotes. Hash the resulting UTF-8 bytes without BOM. The comparison preserves case and all other punctuation. Bodies longer than 16,384 UTF-16 code units after normalization do not produce a full-text match. A modified, truncated or supplemented body can still yield heading or explicit declaration evidence. A filename or incidental mention contributes no evidence.
+
+The embedded catalog covers selected published bodies for `MIT`, `OFL-1.1`, `OFL-1.0`, `Ubuntu-font-1.0`, `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC` and `0BSD`. Coverage is limited to fingerprints in the catalog. OFL 1.1 accepts the SIL double-hyphen and SPDX em-dash variants. Apache-2.0 accepts the official terms with or without the publisher's exact appendix. When present in a recognized document, that appendix is included in the full-text range. [Embedded catalog](../Font.Metadata.Spdx/LicenseProfiles.json) · [SIL plaintext](https://openfontlicense.org/documents/OFL.txt) · [SPDX OFL 1.1](https://spdx.org/licenses/OFL-1.1.html) · [SPDX MIT](https://spdx.org/licenses/MIT.html) · [Apache-2.0 plaintext](https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+### Caller-supplied catalogs
+
+Pass an immutable `FontLicenseDocumentCatalog` in `FontLicenseDocumentOptions.Catalog` for a single call. `Parse(string json, bool includeBuiltIn = false)` accepts a JSON array of profiles. By default the array replaces the built-in catalog. Passing `includeBuiltIn: true` adds the supplied profiles alongside the built-ins with collision checks. An empty replacement array leaves only explicit SPDX declaration recognition. The supplied `SpdxLicenseRegistry` continues to validate those declarations. Profile identifiers label text matches under the caller's catalog and there is no registry validation of those match labels.
+
+```csharp
+using System;
+using System.Security.Cryptography;
+using System.Text;
+using Fonts.Metadata;
+using Spdx.Expressions;
+
+const string body = "Example permission. Example conditions.";
+string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
+string profiles = $$"""
+[
+  {
+    "identifier": "LicenseRef-Example",
+    "headings": [{ "match": "wholeLineIgnoreCase", "text": "Example Terms" }],
+    "bodySha256": ["{{digest}}"]
+  }
+]
+""";
+var options = new FontLicenseDocumentOptions {
+    Catalog = FontLicenseDocumentCatalog.Parse(profiles, includeBuiltIn: true)
+};
+var result = FontLicenseDocumentAnalyzer.Analyze("Example Terms\n" + body, SpdxLicenseRegistry.Default, options);
+```
+
+Each profile requires `identifier` and `bodySha256`. The optional `headings` and `frontMatter` arrays default to empty. The optional `source` is an HTTP(S) reference for maintainers and is never fetched. Use ASCII letters, digits, hyphens and dots for identifiers, starting with a letter or digit. Use one to sixteen 64-digit hexadecimal SHA-256 strings per profile.
+
+| Rule `match` | Meaning |
+| --- | --- |
+| `wholeLine` or `wholeLineIgnoreCase` | Compare the whole trimmed line with `text`, using ordinal case-sensitive or ordinal case-insensitive matching. |
+| `wrappedPhrase` | Compare the whole phrase case-insensitively. Use single spaces in `text` where input spaces, tabs or line breaks may occur. |
+| `prefixWithValue` | Require a case-insensitive leading `text` and at least one character after it. |
+| `prefixWithExactSuffix` | Require a case-insensitive leading `text` followed by the exact ordinal `suffix`, allowing intervening ASCII spaces. |
+| `separator` | Require a trimmed line of repetitions of the single character in `text`, with at least `minimumLength` occurrences (3 through 256). |
+
+All rules require `match` and `text`. Headings support the first two rows and can set `unversioned: true` to report a null identifier. A matching heading or wrapped phrase retains the longest recognized source range. An explicit SPDX declaration line retains its own evidence even next to a wrapped phrase. Front matter can set `after: "copyright"` to require a preceding copyright line, skipping blank lines and explicit declarations. Identifiers may be up to 128 characters and rule text and suffixes may be up to 256 characters. Parsing accepts up to 262,144 UTF-16 code units of JSON, 64 profiles and 256 rules, including built-ins when merging. Headings that can match the same text must report the same identifier. Two `wholeLine` headings can distinguish `Terms` from `TERMS`. Using `wholeLineIgnoreCase` for either heading makes that pair overlap. Invalid, duplicate or ambiguous definitions throw `JsonException`. Parsing is offline and returns an immutable catalog that callers can reuse.
+
+### Document limits and diagnostics
+
+| Limit | Default | Behavior |
+| --- | ---: | --- |
+| `MaxSourceCharacters` | 1,048,576 | Rejects oversized strings before recognizing any evidence. Returns `FDL_SOURCE_CHARACTER_LIMIT` with null coordinates. |
+| `MaxEvidence` | 256 | Keeps earlier entries in order and stops at the first omitted entry. Returns `FDL_EVIDENCE_LIMIT` with that entry's coordinates. |
+| Native SPDX limits | Pinned parser and validator defaults | A parser limit is retained at its declaration and analysis continues. Validation diagnostic truncation is reported by the native result, whose occurrences are preserved. |
+
+`IsAnalysisComplete` is false on a document or parser limit. Syntax errors, unknown identifiers and unresolved references remain evidence in an otherwise complete analysis. Native diagnostic truncation is separately visible on the declaration. See the [CLI document command](cli.md#external-license-documents) for the byte-read, digest and UTF-8 contract.

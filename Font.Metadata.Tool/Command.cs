@@ -8,19 +8,20 @@ using Spdx.Expressions;
 
 namespace Fonts.Metadata.Tool {
     internal static class Command {
-        internal const string Usage = "Usage: font-metadata inspect <path> [<path> ...] [options]\n       font-metadata inspect - [options]\n       font-metadata --help | --version";
+        internal const string Usage = "Usage: font-metadata inspect <path> [<path> ...] [options]\n       font-metadata inspect - [options]\n       font-metadata inspect-license <path> [<path> ...] [--format plain|json]\n       font-metadata --help | --version";
         const string Help = "Font.Metadata.Tool\n" + Usage +
-            "\nOptions: --format plain|json (default: plain), --include-name-records, --analyze-licenses, --analyze-spdx, --max-input-bytes <bytes>\n" +
+            "\nInspect options: --format plain|json (default: plain), --include-name-records, --include-unicode-coverage, --include-variation-axes, --analyze-licenses, --analyze-spdx, --max-input-bytes <bytes>\n" +
             "Use -- before literal paths beginning with '-'. Stdin '-' must be the only source.\n" +
             "Reads SFNT/TTC, WOFF, WOFF2 and EOT. No embedded search or directory traversal.\n" +
+            "Design axes are shown for declared fvar tables. Use --include-variation-axes to report the status for every face.\n" +
             "Input defaults to 128 MiB; additional library decoding limits apply (see docs/cli.md).\n" +
+            "inspect-license reads explicit UTF-8 files up to 1 MiB each (optional UTF-8 BOM). It reports SPDX declarations, license headings and verified texts from the built-in catalog.\n" +
             "License hints are evidence, not a license decision.\n" +
             "Exit codes: 0 complete, 1 incomplete/unrecognized, 2 arguments, 3 I/O, 130 cancellation.";
         const string InvalidArguments = "CLI_INVALID_ARGUMENTS: Invalid arguments. Use --help.";
         const string Cancelled = "CLI_CANCELLED: Inspection cancelled; the output may be incomplete.";
         const string OutputError = "CLI_OUTPUT_ERROR: Could not write the report; the output may be incomplete.";
         const int BufferSize = 81920;
-
         internal static Task<int> RunAsync(string[] args, TextWriter error, CancellationToken token) {
             return RunAsync(args, (options, registry) => ExecuteConsoleAsync(options, registry, token), error, token);
         }
@@ -37,7 +38,7 @@ namespace Fonts.Metadata.Tool {
                 return 130;
             }
             // Packaging faults must not be classified as source or output I/O failures.
-            var registry = options.AnalyzeSpdx ? SpdxLicenseRegistry.Default : null;
+            var registry = options.AnalyzeSpdx || options.InspectLicense ? SpdxLicenseRegistry.Default : null;
             try {
                 token.ThrowIfCancellationRequested();
                 int exitCode = await execute(options, registry);
@@ -69,8 +70,14 @@ namespace Fonts.Metadata.Tool {
                 output.Flush();
                 return 0;
             }
+            if(options.InspectLicense)
+                return await LicenseDocumentCommand.RunAsync(options, output, registry!, token);
             var limits = new FontReadLimits { MaxInputBytes = options.MaxInputBytes };
-            var readOptions = new FontReadOptions { Limits = limits };
+            var readOptions = new FontReadOptions {
+                Limits = limits,
+                IncludeUnicodeCoverage = options.IncludeUnicodeCoverage,
+                IncludeVariationAxes = true
+            };
             using(ReportWriter writer = options.Json ?
                 new JsonReportWriter(output, options, token, registry) : new PlainReportWriter(output, options, token, registry)) {
                 writer.Begin();
@@ -145,6 +152,5 @@ namespace Fonts.Metadata.Tool {
             }
         }
     }
-
     internal sealed record SourceResult(InputSource Source, FontInspectionResult? Inspection, string? Error);
 }

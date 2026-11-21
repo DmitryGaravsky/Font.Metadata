@@ -13,12 +13,15 @@ namespace Fonts.Metadata.Internal {
             bool complete = false;
             var stopped = FontSectionStatus.Invalid;
             var selected = new SortedSet<int>();
+            var optional = new SortedSet<int>();
             foreach(var face in faces) {
                 if(face.Failure.HasValue)
                     continue;
                 foreach(var pair in face.Tables) {
                     if(ContainerLayout.IsMetadata(pair.Key) && pair.Value >= 0)
                         selected.Add(pair.Value);
+                    else if(context.WantsOptionalTable(pair.Key) && pair.Value >= 0)
+                        optional.Add(pair.Value);
                 }
             }
             var buffers = new List<Table>();
@@ -30,7 +33,10 @@ namespace Fonts.Metadata.Internal {
                     int available = AvailableCompressedLength(data, start, compressedLength);
                     var budget = new DecodeBudget(context, available);
                     budget.CheckDeclared(expected);
-                    foreach(int index in selected) {
+                    // Reserve baseline tables first, even when an optional table occurs earlier in the stream.
+                    var allocationOrder = new List<int>(selected);
+                    allocationOrder.AddRange(optional);
+                    foreach(int index in allocationOrder) {
                         context.CheckCancellation();
                         var table = entries[index];
                         if(!table.Supported || table.Transform != 0) {
@@ -51,6 +57,7 @@ namespace Fonts.Metadata.Internal {
                         }
                     }
                     // Even with no selected tables, consume and validate the entire Brotli stream.
+                    buffers.Sort((left, right) => left.Offset.CompareTo(right.Offset));
                     Decode(data.Slice(start, available), expected, buffers, context, budget);
                     complete = available == compressedLength;
                     if(available != compressedLength)
@@ -64,16 +71,24 @@ namespace Fonts.Metadata.Internal {
                 catch(InvalidDataException) {
                     context.Error(FontDiagnosticCodes.InvalidCompressedData, ContainerMessages.Compression, start);
                 }
-                foreach(var face in faces) {
-                    var names = GetMetadata(face, ContainerLayout.NameTag, entries, source, complete, stopped, context);
-                    var os2 = GetMetadata(face, ContainerLayout.Os2Tag, entries, source, complete, stopped, context);
-                    var result = context.CreateFace(face.Index, face.Flavor, names, os2, face.Valid);
-                    context.Faces.Add(result);
-                }
+                BuildFaces(entries, faces, source, complete, stopped, context);
             }
             finally {
                 foreach(var table in buffers)
                     table.Buffer!.Dispose();
+            }
+        }
+        // Only completed face directories enter this list. Their references establish presence even
+        // when a later descriptor prevents locating the compressed stream.
+        static void BuildFaces(List<Table> entries, List<FaceDirectory> faces, SourceLocation source,
+            bool complete, FontSectionStatus stopped, ReadingContext context) {
+            foreach(var face in faces) {
+                var names = GetMetadata(face, ContainerLayout.NameTag, entries, source, complete, stopped, context);
+                var os2 = GetMetadata(face, ContainerLayout.Os2Tag, entries, source, complete, stopped, context);
+                var cmap = context.IncludeUnicodeCoverage ? GetMetadata(face, ContainerLayout.CmapTag, entries, source, complete, stopped, context) : null;
+                var fvar = context.IncludeVariationAxes ? GetMetadata(face, ContainerLayout.FvarTag, entries, source, complete, stopped, context) : null;
+                var result = context.CreateFace(face.Index, face.Flavor, names, os2, face.Valid, cmap: cmap, fvar: fvar);
+                context.Faces.Add(result);
             }
         }
         static TableMetadata GetMetadata(FaceDirectory face, uint tag, List<Table> entries, SourceLocation source,
@@ -83,15 +98,16 @@ namespace Fonts.Metadata.Internal {
             if(!face.Tables.TryGetValue(tag, out int index))
                 return TableMetadata.Empty(face.AbsenceKnown ? FontSectionStatus.Missing : FontSectionStatus.NotRead);
             if(index < 0)
-                return TableMetadata.Empty(FontSectionStatus.Invalid);
+                return TableMetadata.UnreadableEntry(tag, FontSectionStatus.Invalid);
             var table = entries[index];
             if(table.Failure.HasValue) {
                 if(table.FailureDiagnostic != null)
-                    context.Diagnostics.Add(table.FailureDiagnostic.ForFace(face.Index));
-                return TableMetadata.Empty(table.Failure.Value);
+                    return context.SharedTableFailure(source, table.Offset, table.Original, tag,
+                        face.Index, table.Failure.Value, table.FailureDiagnostic);
+                return TableMetadata.UnreadableEntry(tag, table.Failure.Value);
             }
             if(table.Buffer == null || table.Written != table.Stored)
-                return TableMetadata.Empty(stopped);
+                return TableMetadata.UnreadableEntry(tag, stopped);
             return context.ReadTable(tag, table.Buffer.Bytes, source, table.Offset, complete);
         }
         static void Decode(ReadOnlySpan<byte> input, long expected, List<Table> selected,

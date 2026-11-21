@@ -7,21 +7,22 @@ namespace Fonts.Metadata.Tool {
     internal sealed record InputSource(string? Path) {
         internal string Kind { get { return Path == null ? "stdin" : "file"; } }
     }
-
     internal sealed class CommandOptions {
         internal bool Help { get; init; }
         internal bool Version { get; init; }
+        internal bool InspectLicense { get; init; }
         internal bool Json { get; init; }
+        internal bool IncludeUnicodeCoverage { get; init; }
+        internal bool IncludeVariationAxes { get; init; }
         internal bool IncludeNameRecords { get; init; }
         internal bool AnalyzeLicenses { get; init; }
         internal bool AnalyzeSpdx { get; init; }
         internal int MaxInputBytes { get; init; } = new FontReadLimits().MaxInputBytes;
         internal IReadOnlyList<InputSource> Sources { get; init; } = ReadOnlyCollection<InputSource>.Empty;
-
         internal static bool TryParse(string[] args, out CommandOptions options) {
             options = new CommandOptions();
             if(args.Length == 0 || args.Length == 1 && IsHelp(args[0]) ||
-                args.Length == 2 && args[0] == "inspect" && IsHelp(args[1])) {
+                args.Length == 2 && (args[0] is "inspect" or "inspect-license") && IsHelp(args[1])) {
                 options = new CommandOptions { Help = true };
                 return true;
             }
@@ -29,9 +30,11 @@ namespace Fonts.Metadata.Tool {
                 options = new CommandOptions { Version = true };
                 return true;
             }
-            if(args.Length == 0 || args[0] != "inspect")
+            if(args.Length == 0 || args[0] is not ("inspect" or "inspect-license"))
                 return false;
+            bool inspectLicense = args[0] == "inspect-license";
             bool literal = false, json = false, records = false, licenses = false, spdx = false;
+            bool coverage = false, axes = false;
             int maxInput = options.MaxInputBytes;
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var sources = new List<InputSource>();
@@ -41,7 +44,7 @@ namespace Fonts.Metadata.Tool {
                     literal = true;
                     continue;
                 }
-                if(!literal && argument == "-") {
+                if(!literal && !inspectLicense && argument == "-") {
                     sources.Add(new InputSource(null));
                     continue;
                 }
@@ -49,13 +52,19 @@ namespace Fonts.Metadata.Tool {
                     if(!seen.Add(argument))
                         return false;
                     switch(argument) {
-                        case "--include-name-records":
+                        case "--include-unicode-coverage" when !inspectLicense:
+                            coverage = true;
+                            break;
+                        case "--include-variation-axes" when !inspectLicense:
+                            axes = true;
+                            break;
+                        case "--include-name-records" when !inspectLicense:
                             records = true;
                             break;
-                        case "--analyze-spdx":
+                        case "--analyze-spdx" when !inspectLicense:
                             spdx = true;
                             break;
-                        case "--analyze-licenses":
+                        case "--analyze-licenses" when !inspectLicense:
                             licenses = true;
                             break;
                         case "--format":
@@ -63,7 +72,7 @@ namespace Fonts.Metadata.Tool {
                                 return false;
                             json = args[i] == "json";
                             break;
-                        case "--max-input-bytes":
+                        case "--max-input-bytes" when !inspectLicense:
                             if(++i == args.Length || !TryLimit(args[i], out maxInput))
                                 return false;
                             break;
@@ -79,7 +88,10 @@ namespace Fonts.Metadata.Tool {
             if(sources.Count == 0 || sources.Count > 1 && sources.Exists(source => source.Path == null))
                 return false;
             options = new CommandOptions {
+                InspectLicense = inspectLicense,
                 Json = json,
+                IncludeUnicodeCoverage = coverage,
+                IncludeVariationAxes = axes,
                 IncludeNameRecords = records,
                 AnalyzeLicenses = licenses,
                 AnalyzeSpdx = spdx,

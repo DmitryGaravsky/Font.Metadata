@@ -1,0 +1,156 @@
+[
+  {
+    "identifier": "0BSD",
+    "source": "https://spdx.org/licenses/0BSD.html",
+    "headings": [
+      { "match": "wholeLineIgnoreCase", "text": "BSD Zero Clause License" },
+      { "match": "wholeLineIgnoreCase", "text": "Zero-Clause BSD License" }
+    ],
+    "bodySha256": [
+      "1FC595850815E2AFBAF6B3AA49EDAA2FB51A99028BC3A78D0EBE834EAD586914"
+    ]
+  },
+  {
+    "identifier": "Apache-2.0",
+    "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "headings": [
+      { "match": "wrappedPhrase", "text": "Apache License Version 2.0, January 2004" },
+      { "match": "wrappedPhrase", "text": "Apache License Version 2.0" },
+      { "match": "wholeLineIgnoreCase", "text": "Apache License, Version 2.0" },
+      { "match": "wholeLineIgnoreCase", "text": "Apache License", "unversioned": true }
+    ],
+    "frontMatter": [
+      { "match": "wholeLine", "text": "http://www.apache.org/licenses/" },
+      { "match": "wholeLine", "text": "https://www.apache.org/licenses/" },
+      { "match": "wholeLine", "text": "https://www.apache.org/licenses" },
+      { "match": "wholeLine", "text": "http://www.apache.org/licenses" }
+    ],
+    "bodySha256": [
+      "B316B715C7F48AF32F6265B3DE80B9656FDBDDC57F5854215C8A4C6E0AD42C05",
+      "3DA7779A2C6E94EE84B1D195DBFE0664B9F33AFB87F8E6D6196B8FB0EB4C4097"
+    ]
+  },
+  {
+    "identifier": "BSD-2-Clause",
+    "source": "https://spdx.org/licenses/BSD-2-Clause.html",
+    "headings": [
+      { "match": "wholeLineIgnoreCase", "text": "BSD 2-Clause License" },
+      { "match": "wholeLineIgnoreCase", "text": "BSD 2-Clause \"Simplified\" License" }
+    ],
+    "frontMatter": [
+      { "match": "wholeLineIgnoreCase", "text": "All rights reserved.", "after": "copyright" }
+    ],
+    "bodySha256": [
+      "971850F7F84E5DC88BD6B52E0D0C1FBFFDAEC4EAE2FD311B1511D42BF7855C51"
+    ]
+  },
+  {
+    "identifier": "BSD-3-Clause",
+    "source": "https://spdx.org/licenses/BSD-3-Clause.html",
+    "headings": [
+      { "match": "wholeLineIgnoreCase", "text": "BSD 3-Clause License" },
+      { "match": "wholeLineIgnoreCase", "text": "BSD 3-Clause \"New\" or \"Revised\" License" }
+    ],
+    "frontMatter": [
+      { "match": "wholeLineIgnoreCase", "text": "All rights reserved.", "after": "copyright" }
+    ],
+    "bodySha256": [
+      "70435D703F5E4BDCA9A1FA6B9291501B0DD850D2AD5457B491CE936217B1E063"
+    ]
+  },
+  {
+    "identifier": "ISC",
+    "source": "https://spdx.org/licenses/ISC.html",
+    "headings": [
+      { "match": "wholeLineIgnoreCase", "text": "ISC License" },
+      { "match": "wholeLineIgnoreCase", "text": "The ISC License" }
+    ],
+    "bodySha256": [
+      "4829CC8E654BE69DD1EDCEBEDBDA21758A239C230E38F532D6BF4B0ADC1A0427",
+      "15824D08EFDD156A65AEB2CCE9FD7EE914B2ADC5231F5F2A26D998C8CCF05214"
+    ]
+  },
+  {
+    "identifier": "MIT",
+    "source": "https://spdx.org/licenses/MIT.html",
+    "headings": [
+      { "match": "wholeLineIgnoreCase", "text": "MIT License" },
+      { "match": "wholeLineIgnoreCase", "text": "The MIT License" },
+      { "match": "wholeLineIgnoreCase", "text": "MIT License (MIT)" },
+      { "match": "wholeLineIgnoreCase", "text": "The MIT License (MIT)" }
+    ],
+    "frontMatter": [
+      { "match": "wholeLineIgnoreCase", "text": "All rights reserved.", "after": "copyright" }
+    ],
+    "bodySha256": [
+      "FE2A9817987F862EACED948F0468C7F51D2FEDFC48C5C505B246A49A3870E9A5"
+    ]
+  },
+  {
+    "identifier": "OFL-1.0",
+    "source": "https://spdx.org/licenses/OFL-1.0.html",
+    "headings": [
+      { "match": "wrappedPhrase", "text": "SIL OPEN FONT LICENSE Version 1.0 - 22 November 2005" },
+      { "match": "wrappedPhrase", "text": "SIL OPEN FONT LICENSE Version 1.0" },
+      { "match": "wrappedPhrase", "text": "SIL OPEN FONT LICENSE", "unversioned": true }
+    ],
+    "frontMatter": [
+      { "match": "wrappedPhrase", "text": "This license is copied below, and is also available with a FAQ at:" },
+      { "match": "wholeLine", "text": "http://scripts.sil.org/OFL" },
+      { "match": "wholeLine", "text": "https://scripts.sil.org/OFL" },
+      { "match": "wholeLine", "text": "https://openfontlicense.org" },
+      { "match": "wholeLine", "text": "https://openfontlicense.org/" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "http://scripts.sil.org/OFL" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "https://scripts.sil.org/OFL" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "https://openfontlicense.org" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "https://openfontlicense.org/" },
+      { "match": "prefixWithValue", "text": "with Reserved Font Name ", "after": "copyright" },
+      { "match": "prefixWithValue", "text": "Reserved Font Name ", "after": "copyright" },
+      { "match": "separator", "text": "-", "minimumLength": 3 }
+    ],
+    "bodySha256": [
+      "75687BC3EA266961B878AA9F867C43431C46F57895CDE49FA6E3570F9856A5D9"
+    ]
+  },
+  {
+    "identifier": "OFL-1.1",
+    "source": "https://openfontlicense.org/documents/OFL.txt",
+    "headings": [
+      { "match": "wrappedPhrase", "text": "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007" },
+      { "match": "wrappedPhrase", "text": "SIL OPEN FONT LICENSE Version 1.1" },
+      { "match": "wrappedPhrase", "text": "SIL OPEN FONT LICENSE", "unversioned": true },
+      { "match": "wrappedPhrase", "text": "This Font Software is licensed under the SIL Open Font License, Version 1.1." }
+    ],
+    "frontMatter": [
+      { "match": "wrappedPhrase", "text": "This license is copied below, and is also available with a FAQ at:" },
+      { "match": "wholeLine", "text": "http://scripts.sil.org/OFL" },
+      { "match": "wholeLine", "text": "https://scripts.sil.org/OFL" },
+      { "match": "wholeLine", "text": "https://openfontlicense.org" },
+      { "match": "wholeLine", "text": "https://openfontlicense.org/" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "http://scripts.sil.org/OFL" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "https://scripts.sil.org/OFL" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "https://openfontlicense.org" },
+      { "match": "prefixWithExactSuffix", "text": "This license is copied below, and is also available with a FAQ at:", "suffix": "https://openfontlicense.org/" },
+      { "match": "prefixWithValue", "text": "with Reserved Font Name ", "after": "copyright" },
+      { "match": "prefixWithValue", "text": "Reserved Font Name ", "after": "copyright" },
+      { "match": "separator", "text": "-", "minimumLength": 3 }
+    ],
+    "bodySha256": [
+      "65A67A379D9157A5D3E26B95313206AFE983DB9743688FC98D9545C9F24BBE7D",
+      "3DE60E5DE4116595960EB65A2730DFFC513F6EF04E29E42F6821DBAB78D29552"
+    ]
+  },
+  {
+    "identifier": "Ubuntu-font-1.0",
+    "source": "https://assets.ubuntu.com/v1/81e5605d-ubuntu-font-licence-1.0.txt",
+    "headings": [
+      { "match": "wrappedPhrase", "text": "UBUNTU FONT LICENCE Version 1.0" }
+    ],
+    "frontMatter": [
+      { "match": "separator", "text": "-", "minimumLength": 3 }
+    ],
+    "bodySha256": [
+      "4CAAFE41434B1984F971304C0D4FE04E48F7D0B0B5C03657DCEA08764522C7B8"
+    ]
+  }
+]

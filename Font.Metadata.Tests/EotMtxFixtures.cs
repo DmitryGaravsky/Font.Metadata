@@ -1,7 +1,6 @@
 using System;
 
 namespace Fonts.Metadata.Tests {
-
     // Independently encoded by Windows TTEmbedFontFromFileA(TTEMBED_TTCOMPRESSED).
     // The source TTF was generated with fontTools 4.59.2: empty .notdef/space and one triangle glyph.
     // No third-party font bytes are included. The second fixture adds a synthetic ZZZZ table of

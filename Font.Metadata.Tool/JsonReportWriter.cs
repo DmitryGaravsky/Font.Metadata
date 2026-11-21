@@ -10,7 +10,6 @@ namespace Fonts.Metadata.Tool {
         readonly Utf8JsonWriter writer;
         readonly Stream output;
         const int FlushThreshold = 16384;
-
         internal JsonReportWriter(Stream output, CommandOptions options, CancellationToken token, SpdxLicenseRegistry? registry = null) : base(options, token) {
             this.output = output;
             this.registry = registry;
@@ -23,6 +22,10 @@ namespace Fonts.Metadata.Tool {
             writer.WriteBoolean("includeNameRecords", Options.IncludeNameRecords);
             writer.WriteBoolean("analyzeLicenses", Options.AnalyzeLicenses);
             writer.WriteNumber("maxInputBytes", Options.MaxInputBytes);
+            if(Options.IncludeUnicodeCoverage)
+                writer.WriteBoolean("includeUnicodeCoverage", true);
+            if(Options.IncludeVariationAxes)
+                writer.WriteBoolean("includeVariationAxes", true);
             if(Options.AnalyzeSpdx)
                 writer.WriteBoolean("analyzeSpdx", true);
             writer.WriteEndObject();
@@ -49,11 +52,8 @@ namespace Fonts.Metadata.Tool {
                 WriteDiagnostic("CLI_IO_ERROR", "error", "io", result.Error, null, null, null, null);
             }
             else {
-                foreach(var diagnostic in result.Inspection!.Diagnostics) {
-                    WriteDiagnostic(diagnostic.Code, ReportValues.Severity(diagnostic.Severity),
-                        ReportValues.Category(diagnostic.Category), diagnostic.Message, diagnostic.FaceIndex,
-                        diagnostic.TableTag, diagnostic.ByteOffset, diagnostic.TableByteOffset);
-                }
+                foreach(var diagnostic in result.Inspection!.Diagnostics)
+                    WriteDiagnostic(diagnostic);
             }
             writer.WriteEndArray();
             writer.WriteEndObject();
@@ -95,6 +95,10 @@ namespace Fonts.Metadata.Tool {
                     Checkpoint();
                     writer.WriteString(field.Key, field.Value);
                 }
+                if(face.UnicodeCoverage is { } coverage)
+                    WriteUnicodeCoverage(coverage);
+                if(GetReportedAxes(face) is { } axes)
+                    WriteVariationAxes(axes);
                 if(Options.IncludeNameRecords) {
                     writer.WriteStartArray("nameRecords");
                     foreach(var record in face.NameRecords)
@@ -140,6 +144,10 @@ namespace Fonts.Metadata.Tool {
             writer.WriteString("value", record.Value);
             writer.WriteEndObject();
             Checkpoint();
+        }
+        void WriteDiagnostic(FontDiagnostic diagnostic) {
+            WriteDiagnostic(diagnostic.Code, ReportValues.Severity(diagnostic.Severity), ReportValues.Category(diagnostic.Category),
+                diagnostic.Message, diagnostic.FaceIndex, diagnostic.TableTag, diagnostic.ByteOffset, diagnostic.TableByteOffset);
         }
         void WriteDiagnostic(string code, string severity, string category, string message,
             int? face, string? table, long? offset, long? tableOffset) {

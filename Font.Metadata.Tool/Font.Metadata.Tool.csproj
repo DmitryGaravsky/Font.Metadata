@@ -7,7 +7,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>font-metadata</ToolCommandName>
     <PackageId>Font.Metadata.Tool</PackageId>
-    <Description>Inspect font metadata from files or binary stdin with plain/JSON reports, diagnostics and optional license evidence.</Description>
+    <Description>Inspect font metadata and explicitly supplied license documents with plain or JSON reports.</Description>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Font.Metadata.Tool.Tests" />

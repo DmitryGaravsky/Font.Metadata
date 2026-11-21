@@ -16,4 +16,9 @@
     <PackageTags>font;metadata;opentype;truetype;woff;eot</PackageTags>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Font.Metadata' Or '$(MSBuildProjectName)' == 'Font.Metadata.Spdx'">
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion>0.1.0-preview.1</PackageValidationBaselineVersion>
+    <ApiCompatEnableRuleCannotChangeParameterName>true</ApiCompatEnableRuleCannotChangeParameterName>
+  </PropertyGroup>
 </Project>

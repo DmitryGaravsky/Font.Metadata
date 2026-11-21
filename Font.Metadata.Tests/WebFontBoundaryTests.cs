@@ -78,6 +78,38 @@ namespace Fonts.Metadata.Tests {
             Assert.That(exhausted.Status, Is.EqualTo(FontReadStatus.Failed));
             Assert.That(exhausted.Metadata!.Faces[0].NameRecords, Is.Empty);
         }
+        [TestCase("name", FontSectionStatus.Missing, FontSectionStatus.Missing, false)]
+        [TestCase("fvar", FontSectionStatus.Missing, FontSectionStatus.NotRead, true)]
+        [TestCase("cmap", FontSectionStatus.NotRead, FontSectionStatus.Missing, false)]
+        public void LaterReferenceLimitPreservesCompletedDirectoryFacts(string tag,
+            FontSectionStatus coverageStatus, FontSectionStatus axisStatus, bool hasFvar) {
+            byte[] font = Woff2([new Table(tag, NameData())], [[0], [0]]);
+            var options = new FontReadOptions {
+                IncludeUnicodeCoverage = true,
+                IncludeVariationAxes = true,
+                Limits = new FontReadLimits { MaxWoff2TableReferences = 1 }
+            };
+            var result = FontMetadataReader.Inspect(font, options);
+            var face = result.Faces.Single();
+            Assert.That(face.Index, Is.Zero);
+            Assert.That(face.UnicodeCoverage!.Status, Is.EqualTo(coverageStatus));
+            Assert.That(face.VariationAxes!.Status, Is.EqualTo(axisStatus));
+            Assert.That(face.VariationAxes.HasTableEntry, Is.EqualTo(hasFvar));
+            Assert.That(result.Diagnostics.Single().Code, Is.EqualTo(FontDiagnosticCodes.LimitExceeded));
+        }
+        [Test]
+        public void IncompleteWoff2ReferencesCannotProveAbsenceInAnEarlierFace() {
+            byte[] font = Woff2([new Table("name", NameData())], [[1], [0]]);
+            var options = new FontReadOptions {
+                IncludeUnicodeCoverage = true,
+                IncludeVariationAxes = true,
+                Limits = new FontReadLimits { MaxWoff2TableReferences = 1 }
+            };
+            var face = FontMetadataReader.Inspect(font, options).Faces.Single();
+            Assert.That(face.UnicodeCoverage!.Status, Is.EqualTo(FontSectionStatus.NotRead));
+            Assert.That(face.VariationAxes!.Status, Is.EqualTo(FontSectionStatus.NotRead));
+            Assert.That(face.VariationAxes.HasTableEntry, Is.False);
+        }
         [Test]
         public void Woff2DictionaryAndReferenceBudgetsAreIndependent() {
             byte[] data = Woff2([new Table("name", NameData()), new Table("OS/2", Os2())], [[0, 1], [0, 1]]);

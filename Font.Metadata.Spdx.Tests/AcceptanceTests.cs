@@ -27,7 +27,6 @@ namespace Fonts.Metadata.Spdx.Tests {
             Assert.That(result.IsAnalysisComplete, Is.False);
             Assert.That(result.Declarations.Single().SourceRecord.Index, Is.EqualTo(count));
             Assert.That(result.Declarations.Single().ExpressionText, Is.EqualTo("MIT"));
-
             face = Face("SPDX-License-Identifier: " + string.Join(" OR ", Enumerable.Repeat("Unknown-1.0", count)) + " OR MIT OR LicenseRef-Late");
             result = FontSpdxAnalyzer.Analyze(face, SpdxLicenseRegistry.Default, new FontSpdxOptions {
                 ValidationOptions = new SpdxValidationOptions { MaxDiagnostics = budget }

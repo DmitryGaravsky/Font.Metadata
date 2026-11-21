@@ -19,7 +19,7 @@ namespace Fonts.Metadata {
         /// <summary>UTF-16 start in SourceRecord.Value, after prefix and outer ASCII whitespace. An empty explicit suffix starts immediately after the colon.</summary>
         public int SourceStart { get; }
         /// <summary>UTF-16 substring length. Native result spans are relative to this substring.</summary>
-        public int SourceLength => ExpressionText.Length;
+        public int SourceLength { get { return ExpressionText.Length; } }
         /// <summary>Exact source substring supplied to the parser, including empty explicit attempts.</summary>
         public string ExpressionText { get; }
         /// <summary>Native parse outcome and immutable AST, without a translated or flattened copy.</summary>

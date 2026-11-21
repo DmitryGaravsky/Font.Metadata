@@ -22,6 +22,12 @@
         },
         "analyzeSpdx": {
           "const": true
+        },
+        "includeUnicodeCoverage": {
+          "const": true
+        },
+        "includeVariationAxes": {
+          "const": true
         }
       },
       "required": [
@@ -407,6 +413,12 @@
         },
         "spdxAnalysis": {
           "$ref": "#/$defs/spdxAnalysis"
+        },
+        "unicodeCoverage": {
+          "$ref": "#/$defs/unicodeCoverage"
+        },
+        "variationAxes": {
+          "$ref": "#/$defs/variationAxes"
         }
       },
       "required": [
@@ -1161,6 +1173,139 @@
         "registry",
         "options"
       ]
+    },
+    "unicodeCoverage": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/section"
+        },
+        "platformId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "encodingId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "format": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "ranges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1114111
+              },
+              "end": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1114111
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ]
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "platformId",
+        "encodingId",
+        "format",
+        "ranges",
+        "diagnostics"
+      ]
+    },
+    "variationAxes": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/section"
+        },
+        "axes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "tag": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 4
+              },
+              "minimum": {
+                "type": "number"
+              },
+              "default": {
+                "type": "number"
+              },
+              "maximum": {
+                "type": "number"
+              },
+              "flags": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "nameId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "index",
+              "tag",
+              "minimum",
+              "default",
+              "maximum",
+              "flags",
+              "nameId"
+            ]
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "axes",
+        "diagnostics"
+      ]
     }
   },
   "allOf": [
@@ -1338,6 +1483,138 @@
                           "required": [
                             "spdxAnalysis"
                           ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "options": {
+            "required": [
+              "includeUnicodeCoverage"
+            ],
+            "properties": {
+              "includeUnicodeCoverage": {
+                "const": true
+              }
+            }
+          }
+        },
+        "required": [
+          "options"
+        ]
+      },
+      "then": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "required": [
+                          "unicodeCoverage"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "not": {
+                          "required": [
+                            "unicodeCoverage"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "options": {
+            "required": [
+              "includeVariationAxes"
+            ],
+            "properties": {
+              "includeVariationAxes": {
+                "const": true
+              }
+            }
+          }
+        },
+        "required": [
+          "options"
+        ]
+      },
+      "then": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "required": [
+                          "variationAxes"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "properties": {
+                          "variationAxes": {
+                            "properties": {
+                              "status": {
+                                "not": {
+                                  "const": "missing"
+                                }
+                              }
+                            }
+                          }
                         }
                       }
                     }

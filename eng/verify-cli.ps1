@@ -47,6 +47,59 @@ try {
     foreach($example in Get-ChildItem -LiteralPath $examples -Filter '*.json') {
         if(-not (Test-Json -LiteralPath $example.FullName -SchemaFile $schema)) { throw 'Documented JSON example is invalid.' }
     }
+    $eotFile = Join-Path $examples 'Recovery.eot'
+    # A single fvar entry declares one wght axis; valid.ttf has only a name table.
+    $variable = [Convert]::FromHexString(
+        '00010000000100100000000066766172000000000000001C00000024' +
+        '000100000010000200010014000000087767687400008000000100000001800000010100')
+    [IO.File]::WriteAllBytes((Join-Path $PWD 'variable.ttf'), $variable)
+    foreach($audit in @($false, $true)) {
+        $axisFlags = @()
+        if($audit) { $axisFlags = @('--include-variation-axes') }
+        $catalogJson = & $Executable @Prefix inspect variable.ttf valid.ttf --format json @axisFlags 2> errors.txt
+        if($LASTEXITCODE -ne 0 -or (Get-Item errors.txt).Length -ne 0) { throw 'Design-axis inspection failed.' }
+        $catalogText = $catalogJson -join "`n"
+        if(-not (Test-Json -Json $catalogText -SchemaFile $schema)) { throw 'Invalid design-axis JSON report.' }
+        $catalog = $catalogText | ConvertFrom-Json -AsHashtable
+        $variableFace = $catalog.results[0].metadata.faces[0]
+        $staticFace = $catalog.results[1].metadata.faces[0]
+        if($catalog.options.Contains('includeVariationAxes') -ne $audit -or
+            $variableFace.variationAxes.status -cne 'complete' -or $variableFace.variationAxes.axes[0].tag -cne 'wght' -or
+            $variableFace.Contains('unicodeCoverage') -or $staticFace.Contains('unicodeCoverage') -or
+            $staticFace.Contains('variationAxes') -ne $audit -or ($audit -and $staticFace.variationAxes.status -cne 'missing')) {
+            throw 'Installed/portable CLI lost automatic or audited axis reporting.'
+        }
+        if($audit) { $staticFace.Remove('variationAxes') }
+        else { $staticFace['variationAxes'] = @{ status = 'missing'; axes = @(); diagnostics = @() } }
+        if(Test-Json -Json ($catalog | ConvertTo-Json -Depth 100) -SchemaFile $schema -ErrorAction SilentlyContinue) {
+            throw 'Schema accepted incorrect static-face axis reporting.'
+        }
+    }
+    $eotJson = & $Executable @Prefix inspect $eotFile --format json
+    if($LASTEXITCODE -ne 1) { throw 'The documented EOT input must give a partial inspection.' }
+    $eotText = $eotJson -join "`n"
+    if(-not (Test-Json -Json $eotText -SchemaFile $schema)) { throw 'Invalid EOT example report.' }
+    $eotReport = $eotText | ConvertFrom-Json
+    if($eotReport.results[0].status -cne 'partial') { throw 'Expected partial EOT metadata.' }
+    $readFlags = Join-Path $examples 'read-embedding-flags.ps1'
+    $rows = @(& $readFlags -Report $eotReport)
+    if($rows.Count -ne 3 -or
+        $rows[0].Source -cne 'EOT header' -or $null -ne $rows[0].FaceIndex -or $rows[0].SectionStatus -cne 'complete' -or
+        $rows[0].RawFsType -cne '0x0002' -or $true -ne $rows[0].Bit0002Set -or
+        $rows[1].Source -cne 'eotMain' -or $rows[1].FaceIndex -ne 0 -or $rows[1].SectionStatus -cne 'notRead' -or
+        $null -ne $rows[1].RawFsType -or $null -ne $rows[1].Bit0002Set -or
+        $rows[2].Source -cne 'eotEudc' -or $rows[2].FaceIndex -ne 1 -or $rows[2].SectionStatus -cne 'complete' -or
+        $rows[2].RawFsType -cne '0x0000' -or $false -ne $rows[2].Bit0002Set) {
+        throw 'The documented fsType example lost a source, a raw value or its availability.'
+    }
+    $extended = $eotText | ConvertFrom-Json -AsHashtable
+    $extended.results[0].metadata.faces[0]['futureSection'] = @{ status = 'example' }
+    $extendedText = $extended | ConvertTo-Json -Depth 100
+    if(-not (Test-Json -Json $extendedText -SchemaFile $schema)) { throw 'JSON v1 rejected an additional optional field.' }
+    $extendedRows = @(& $readFlags -Report ($extendedText | ConvertFrom-Json))
+    if((ConvertTo-Json $rows) -cne (ConvertTo-Json $extendedRows)) {
+        throw 'An additional optional field changed the v1 consumer output.'
+    }
     # Negative examples ensure validation enforces types and option-dependent presence.
     $invalid = $report | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable
     $invalid.results[0].metadata.faces[0].embeddingPermissions = '0'
@@ -184,6 +237,35 @@ try {
         if(Test-Json -Json ($invalid | ConvertTo-Json -Depth 100) -SchemaFile $schema -ErrorAction SilentlyContinue) {
             throw "Schema accepted invalid SPDX case: $mutation"
         }
+    }
+    $documentSchema = Join-Path (Split-Path $PSScriptRoot -Parent) 'docs/cli-license.schema.json'
+    $license = Join-Path (Split-Path $PSScriptRoot -Parent) 'LICENSE'
+    $notice = "🎵 NOTICE`r`nSPDX-License-Identifier: MIT OR Apache-2.0`r`n"
+    [IO.File]::WriteAllText((Join-Path $PWD 'NOTICE'), $notice)
+    [IO.File]::WriteAllText((Join-Path $PWD 'third-party.NOTICE'), 'The supplied archive also refers to the MIT License.')
+    $documentJson = & $Executable @Prefix inspect-license missing-license.txt NOTICE $license third-party.NOTICE --format json 2> errors.txt
+    if($LASTEXITCODE -ne 3 -or (Get-Item errors.txt).Length -ne 0) { throw 'License document I/O exit/channel check failed.' }
+    $documentText = $documentJson -join "`n"
+    if(-not (Test-Json -Json $documentText -SchemaFile $documentSchema)) { throw 'License document report violates its schema.' }
+    $documents = ($documentText | ConvertFrom-Json -AsHashtable).results
+    $noticeHash = (Get-FileHash -LiteralPath 'NOTICE' -Algorithm SHA256).Hash.ToLowerInvariant()
+    $expression = 'MIT OR Apache-2.0'
+    $line = $documents[1].evidence[0]
+    if($documents.Count -ne 4 -or $documents[0].status -cne 'ioError' -or $null -ne $documents[0].sha256 -or
+        $documents[1].source.path -cne 'NOTICE' -or $documents[1].sha256 -cne $noticeHash -or
+        $documents[1].status -cne 'complete' -or $documents[1].evidence.Count -ne 1 -or
+        $line.origin -cne 'spdxDeclaration' -or $line.expressionText -cne $expression -or
+        $line.expressionStart -ne $notice.IndexOf($expression, [StringComparison]::Ordinal) -or
+        $line.sourceText -cne $notice.Substring($line.sourceStart, $line.sourceLength) -or
+        $line.validation.hasIdentifierErrors -or
+        @($documents[2].evidence | Where-Object { $_.origin -ceq 'fullText' -and $_.identifier -ceq 'MIT' }).Count -ne 1 -or
+        $documents[3].status -cne 'complete' -or $documents[3].evidence.Count -ne 0) {
+        throw 'License document provenance, SPDX or full-text contract failed.'
+    }
+    $invalidDocument = $documentText | ConvertFrom-Json -AsHashtable
+    $invalidDocument.results[1].sha256 = 'invalid'
+    if(Test-Json -Json ($invalidDocument | ConvertTo-Json -Depth 100) -SchemaFile $documentSchema -ErrorAction SilentlyContinue) {
+        throw 'License document schema accepted an invalid digest.'
     }
     Write-Host 'CLI plain/JSON, schema, license evidence, partial and I/O checks passed.'
 }

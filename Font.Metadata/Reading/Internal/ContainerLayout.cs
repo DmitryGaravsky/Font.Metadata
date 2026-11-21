@@ -7,6 +7,8 @@ namespace Fonts.Metadata.Internal {
         internal const int Alignment = 4, SfntHeaderSize = 12, SfntRecordSize = 16;
         internal static readonly uint NameTag = BinaryPrimitives.ReadUInt32BigEndian("name"u8);
         internal static readonly uint Os2Tag = BinaryPrimitives.ReadUInt32BigEndian("OS/2"u8);
+        internal static readonly uint CmapTag = BinaryPrimitives.ReadUInt32BigEndian("cmap"u8);
+        internal static readonly uint FvarTag = BinaryPrimitives.ReadUInt32BigEndian("fvar"u8);
         internal static readonly uint GlyfTag = BinaryPrimitives.ReadUInt32BigEndian("glyf"u8);
         internal static readonly uint LocaTag = BinaryPrimitives.ReadUInt32BigEndian("loca"u8);
         internal static readonly uint HmtxTag = BinaryPrimitives.ReadUInt32BigEndian("hmtx"u8);

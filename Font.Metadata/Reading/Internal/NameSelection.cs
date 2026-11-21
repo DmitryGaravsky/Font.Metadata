@@ -9,7 +9,6 @@ namespace Fonts.Metadata.Internal {
         const int UnicodePriority = 2;
         const int MacintoshPriority = 1;
         const int OtherPlatformPriority = 0;
-
         internal static Dictionary<int, string> Select(IReadOnlyList<FontMetadata.NameRecord> records, CancellationToken token) {
             var result = new Dictionary<int, string>();
             var scores = new Dictionary<int, int>();

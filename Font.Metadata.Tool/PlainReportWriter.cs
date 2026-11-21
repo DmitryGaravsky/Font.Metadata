@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -14,7 +15,6 @@ namespace Fonts.Metadata.Tool {
         readonly FontSpdxOptions spdxOptions = new();
         readonly StreamWriter writer;
         bool first = true;
-
         internal PlainReportWriter(Stream output, CommandOptions options, CancellationToken token, SpdxLicenseRegistry? registry = null) : base(options, token) {
             this.registry = registry;
             writer = new StreamWriter(output, new UTF8Encoding(false), leaveOpen: true);
@@ -92,6 +92,22 @@ namespace Fonts.Metadata.Tool {
                     if(field.Value != null)
                         writer.WriteLine($"  {field.Label}: {Escape(field.Value)}");
                 }
+                if(face.UnicodeCoverage is { } coverage) {
+                    writer.WriteLine($"  Unicode coverage: {ReportValues.Section(coverage.Status)} (platform {Number(coverage.PlatformId)}, encoding {Number(coverage.EncodingId)}, format {Number(coverage.Format)})");
+                    foreach(var range in coverage.Ranges) {
+                        Token.ThrowIfCancellationRequested();
+                        writer.WriteLine($"    U+{range.Start:X4}..U+{range.End:X4}");
+                    }
+                    WriteSectionDiagnostics(coverage.Diagnostics);
+                }
+                if(GetReportedAxes(face) is { } axes) {
+                    writer.WriteLine($"  Variation axes: {ReportValues.Section(axes.Status)}");
+                    foreach(var axis in axes.Axes) {
+                        Token.ThrowIfCancellationRequested();
+                        writer.WriteLine(FormattableString.Invariant($"    [{axis.Index}] {Escape(axis.Tag)} min={axis.Minimum} default={axis.Default} max={axis.Maximum} flags={axis.Flags} nameId={axis.NameId}"));
+                    }
+                    WriteSectionDiagnostics(axes.Diagnostics);
+                }
                 if(Options.IncludeNameRecords) {
                     writer.WriteLine("  Name records:");
                     if(face.NameRecords.Count == 0)
@@ -114,6 +130,12 @@ namespace Fonts.Metadata.Tool {
                 }
                 if(Options.AnalyzeSpdx)
                     WriteSpdx(FontSpdxAnalyzer.Analyze(face, registry!, spdxOptions, Token));
+            }
+        }
+        void WriteSectionDiagnostics(IReadOnlyList<FontDiagnostic> diagnostics) {
+            foreach(var diagnostic in diagnostics) {
+                Token.ThrowIfCancellationRequested();
+                writer.WriteLine($"    {diagnostic.Code} at table offset {Number(diagnostic.TableByteOffset)}: {Escape(diagnostic.Message)}");
             }
         }
         void WriteSpdx(FontSpdxAnalysis analysis) {

@@ -49,8 +49,8 @@ namespace Fonts.Metadata.Internal {
             var cursor = new Cursor(data, HeaderSize, context);
             var entries = new List<Table>(count);
             var faces = new List<FaceDirectory>();
+            long length = 0;
             try {
-                long length = 0;
                 for(int i = 0; i < count; i++) {
                     int record = cursor.Position;
                     int flags = cursor.Byte();
@@ -84,25 +84,19 @@ namespace Fonts.Metadata.Internal {
                     }
                     faces.Add(face);
                 }
-                DecodeAndBuild(data, cursor.Position, length, entries, faces, context);
             }
             catch(InvalidDataException) {
                 context.Error(FontDiagnosticCodes.InvalidDirectory, ContainerMessages.Header, cursor.Position);
-                AddUnavailableFaces(faces, context);
+                BuildFaces(entries, faces, default, false, FontSectionStatus.NotRead, context);
+                return;
             }
             catch(DecodeLimitException) {
                 context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, cursor.Position,
                     category: FontDiagnosticCategory.LimitExceeded);
-                AddUnavailableFaces(faces, context);
+                BuildFaces(entries, faces, default, false, FontSectionStatus.NotRead, context);
+                return;
             }
-        }
-        static void AddUnavailableFaces(List<FaceDirectory> faces, ReadingContext context) {
-            foreach(var face in faces) {
-                var names = TableMetadata.Empty(FontSectionStatus.NotRead);
-                var os2 = TableMetadata.Empty(FontSectionStatus.NotRead);
-                var result = context.CreateFace(face.Index, face.Flavor, names, os2, false);
-                context.Faces.Add(result);
-            }
+            DecodeAndBuild(data, cursor.Position, length, entries, faces, context);
         }
         static bool ReadCollection(ref Cursor cursor, List<Table> entries, List<FaceDirectory> faces, ReadingContext context) {
             uint version = cursor.U32();

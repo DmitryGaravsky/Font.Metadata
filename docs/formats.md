@@ -30,6 +30,13 @@ EOT main and EUDC have fixed indexes 0 and 1 and their own flags. XOR is removed
 
 Extended WOFF/WOFF2 XML and private block contents are not extracted or decoded. EOT root restrictions, signatures and outline reconstruction are outside the metadata API.
 
+## Optional face tables
+
+The same library options apply to SFNT faces, collections, WOFF/WOFF2 and embedded EOT faces. Each requested section exposes its own status and diagnostics. Absence in a verified directory yields `Missing`. A directory or payload that cannot be read can yield `NotRead`, `Invalid` or `Unsupported`. Independently verified NAME, OS/2 and EOT header values retain their provenance.
+
+- **Unicode coverage.** Select one supported Unicode cmap subtable in this order: Windows (3, 10) format 12, Unicode (0, 4) format 12, Windows (3, 1) format 4, then Unicode platform 0 format 4 with encoding IDs 3 through 0 in descending order. For equally ranked supported records the first wins. The reported platform ID, encoding ID and format identify the selection. Ranges are inclusive, sorted Unicode scalar values mapped to nonzero glyph IDs. Surrogates are excluded. Shaping, variation sequences, outline availability and validation against maxp are outside this measurement. [OpenType cmap](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap)
+- **Variation axes.** For fvar 1.0, read design axes in source order with the original index, tag, minimum, default, maximum, raw flags and name ID. Coordinates preserve the exact signed 16.16 design-space values. Join the name ID to the same face’s name records for localized labels. A missing label leaves the axis available. Completeness refers to axis records. Named instances, STAT and avar are outside this section. [OpenType fvar](https://learn.microsoft.com/en-us/typography/opentype/spec/fvar)
+
 ## Name tables
 
 The API separates decoded source evidence from preferred values:
@@ -80,7 +87,7 @@ A readable fsType survives a truncated or malformed vendor identifier. Vendor by
 
 ## Validation boundaries
 
-Variable and color fonts can supply the supported name/OS/2 metadata. The reader does not interpret variation axes, named instances, variation programs or color glyph data. General table enumeration and WOFF/WOFF2 XML metadata extraction are also unavailable.
+Variable and color fonts can supply the supported name/OS/2 metadata. The CLI shows design axes for faces with an fvar directory entry. Named instances, variation programs and color glyph data are outside the reader’s scope. General table enumeration and WOFF/WOFF2 XML metadata extraction are also unavailable.
 
 This is a metadata reader, not a rasterizer or comprehensive OpenType validator. It accepts metadata-only synthetic fonts and does not require head, cmap, glyph outlines or a family string. It does not validate glyph programs, SFNT table checksums, searchRange fields, DSIG signatures or full OS/2 metric layouts. It does not validate all table relationships between different TTC faces, beyond inspected directory protection and exact shared metadata reuse.
 

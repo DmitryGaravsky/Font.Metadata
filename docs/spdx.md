@@ -1,11 +1,12 @@
 # SPDX expression analysis
 
 `Font.Metadata.Spdx` is an optional .NET 10 package in namespace `Fonts.Metadata`.
-It depends on `Font.Metadata` and the exact `Spdx.Expressions` version `1.0.0`.
+It depends on `Font.Metadata` and the exact `Spdx.Expressions` version `1.1.0`.
 The reader itself has no SPDX dependency. The CLI bundles the adapter and initializes
-the offline registry only with `--analyze-spdx`.
+the offline registry for `inspect --analyze-spdx` and `inspect-license`. For caller-supplied
+documents, see the [external document API and recognition profile](api.md#external-license-document-analysis).
 
-The dependency is published as [Spdx.Expressions 1.0.0](https://www.nuget.org/packages/Spdx.Expressions/1.0.0).
+The dependency is published as [Spdx.Expressions 1.1.0](https://www.nuget.org/packages/Spdx.Expressions/1.1.0).
 Local and CI builds restore it from nuget.org; no adjacent source checkout or supplied local
 package is required. Runtime analysis remains offline. Publishing Font.Metadata packages is
 separate from restoring this dependency.
@@ -52,6 +53,60 @@ native `ValidationResult`. The AST preserves grouping, order, spelling and plus 
 Validation retains every identifier/reference occurrence and independent error/reference/
 message-truncation flags. References remain unresolved. No expression is selected as a final
 license and no AND/OR relationship is invented between source records.
+
+## Display metadata for a recognized license
+
+Look up a heading or full-text identifier in the registry used for the analysis. The evidence retains the original spelling and location. The registry supplies the display name and links when available.
+
+```csharp
+using System;
+using Fonts.Metadata;
+using Spdx.Expressions;
+
+var registry = SpdxLicenseRegistry.Default;
+var report = FontLicenseDocumentAnalyzer.Analyze("SIL OPEN FONT LICENSE Version 1.1", registry);
+foreach(var item in report.Evidence) {
+    if(item.Identifier is { } id && registry.TryGetLicense(id, out var license)) {
+        Console.WriteLine($"{item.Origin} | {license.Identifier} | {license.Name}");
+        if(license.Reference is { } reference)
+            Console.WriteLine(reference);
+        foreach(string link in license.SeeAlso)
+            Console.WriteLine(link);
+    }
+}
+```
+
+The first line is `Header | OFL-1.1 | SIL Open Font License 1.1`. A custom document profile can return an identifier outside the selected SPDX registry.
+
+## Resolve a reference in a supplied document
+
+A consumer that knows which SPDX documents are available can resolve a declaration against their extracted licenses. In this example the source document binds its local alias `V` to a vendor document that defines `LicenseRef-Font`.
+
+```csharp
+using System;
+using Fonts.Metadata;
+using Spdx.Expressions;
+
+const string text = "SPDX-License-Identifier: MIT OR DocumentRef-V:LicenseRef-Font";
+var report = FontLicenseDocumentAnalyzer.Analyze(text, SpdxLicenseRegistry.Default);
+var context = SpdxReferenceContext.Create(
+    availableDocuments: ["package", "vendor"],
+    definitions: [new("vendor", "Font", "Vendor font license text.")],
+    bindings: [new("package", "V", "vendor")]);
+foreach(var item in report.Evidence) {
+    if(item.ParseResult?.Expression is not { } expression || item.ExpressionStart is not int start)
+        continue;
+    foreach(var match in context.Resolve(expression, "package")) {
+        var span = match.Occurrence.Span;
+        string spelling = text.Substring(start + span.Start, span.Length);
+        Console.WriteLine($"{spelling} | {match.Status}");
+        if(match.Definition is { } definition)
+            Console.WriteLine(definition.ExtractedText);
+    }
+}
+```
+
+This prints `DocumentRef-V:LicenseRef-Font | Resolved` followed by the supplied license text. Without the alias binding, the lookup reports `UnknownDocumentAlias`. The declaration retains its original validation evidence in both cases.
 
 ## Recognition boundaries
 
@@ -157,7 +212,7 @@ consumers can parse the exact expressionText when they need a tree. See the
 
 ## Build and verification
 
-The central dependency range is `[1.0.0]`, so restore cannot silently select another version.
+The central dependency range is `[1.1.0]`, so restore cannot silently select another version.
 Use the repository's public NuGet configuration:
 
 ```powershell

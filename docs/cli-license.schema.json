@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Font.Metadata.Tool inspect-license report, version 1",
+  "type": "object",
+  "required": ["schemaVersion", "options", "spdxContext", "results"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "options": {
+      "type": "object",
+      "required": ["maxInputBytes", "maxSourceCharacters", "maxEvidence"],
+      "properties": {
+        "maxInputBytes": { "$ref": "#/$defs/positive" },
+        "maxSourceCharacters": { "$ref": "#/$defs/positive" },
+        "maxEvidence": { "$ref": "#/$defs/positive" }
+      }
+    },
+    "spdxContext": {
+      "type": "object",
+      "required": ["recognitionProfile", "syntaxProfile", "registry"],
+      "properties": {
+        "recognitionProfile": { "type": "string", "minLength": 1 },
+        "syntaxProfile": { "type": "string", "minLength": 1 },
+        "registry": {
+          "type": "object",
+          "required": ["licenseListVersion", "licensesSha256", "exceptionsSha256"],
+          "properties": {
+            "licenseListVersion": { "type": "string", "minLength": 1 },
+            "licensesSha256": { "$ref": "#/$defs/sha256" },
+            "exceptionsSha256": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/result" }
+    }
+  },
+  "$defs": {
+    "positive": { "type": "integer", "minimum": 1 },
+    "coordinate": { "type": "integer", "minimum": 0 },
+    "nullableCoordinate": { "type": ["integer", "null"], "minimum": 0 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$", "minLength": 64, "maxLength": 64 },
+    "result": {
+      "type": "object",
+      "required": ["source", "status", "sha256", "hasUtf8Bom", "evidence", "diagnostics"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": { "const": "file" },
+            "path": { "type": "string", "minLength": 1 }
+          }
+        },
+        "status": { "enum": ["complete", "limitExceeded", "invalidEncoding", "ioError"] },
+        "sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "hasUtf8Bom": { "type": ["boolean", "null"] },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "diagnostics": { "type": "array", "maxItems": 1, "items": { "$ref": "#/$defs/diagnostic" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "sha256": { "type": "null" } } },
+          "then": {
+            "properties": {
+              "status": { "enum": ["limitExceeded", "ioError"] },
+              "hasUtf8Bom": { "type": "null" },
+              "evidence": { "maxItems": 0 },
+              "diagnostics": { "minItems": 1 }
+            }
+          },
+          "else": { "properties": { "hasUtf8Bom": { "type": "boolean" }, "status": { "not": { "const": "ioError" } } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "invalidEncoding" } } },
+          "then": { "properties": { "evidence": { "maxItems": 0 }, "diagnostics": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "complete" } } },
+          "then": { "properties": { "diagnostics": { "maxItems": 0 } } }
+        }
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "message", "sourceStart", "sourceLength"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" },
+        "sourceStart": { "$ref": "#/$defs/nullableCoordinate" },
+        "sourceLength": { "$ref": "#/$defs/nullableCoordinate" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["origin", "identifier", "sourceStart", "sourceLength", "sourceText",
+        "expressionStart", "expressionLength", "expressionText", "parseStatus", "parseDiagnostics", "validation"],
+      "properties": {
+        "origin": { "enum": ["spdxDeclaration", "header", "fullText"] },
+        "identifier": { "type": ["string", "null"] },
+        "sourceStart": { "$ref": "#/$defs/coordinate" },
+        "sourceLength": { "$ref": "#/$defs/positive" },
+        "sourceText": { "type": "string", "minLength": 1 },
+        "expressionStart": { "$ref": "#/$defs/nullableCoordinate" },
+        "expressionLength": { "$ref": "#/$defs/nullableCoordinate" },
+        "expressionText": { "type": ["string", "null"] },
+        "parseStatus": { "enum": ["success", "invalidSyntax", "limitExceeded", null] },
+        "parseDiagnostics": { "type": "array", "maxItems": 1, "items": { "$ref": "#/$defs/spdxDiagnostic" } },
+        "validation": { "oneOf": [{ "$ref": "#/$defs/validation" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "origin": { "const": "spdxDeclaration" } } },
+          "then": {
+            "properties": {
+              "identifier": { "type": "null" },
+              "expressionStart": { "$ref": "#/$defs/coordinate" },
+              "expressionLength": { "$ref": "#/$defs/coordinate" },
+              "expressionText": { "type": "string" },
+              "parseStatus": { "type": "string" }
+            }
+          },
+          "else": {
+            "properties": {
+              "expressionStart": { "type": "null" },
+              "expressionLength": { "type": "null" },
+              "expressionText": { "type": "null" },
+              "parseStatus": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "origin": { "const": "fullText" } } },
+          "then": { "properties": { "identifier": { "type": "string", "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "parseStatus": { "const": "success" } } },
+          "then": { "properties": { "validation": { "$ref": "#/$defs/validation" } } },
+          "else": { "properties": { "validation": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "parseStatus": { "enum": ["invalidSyntax", "limitExceeded"] } } },
+          "then": { "properties": { "parseDiagnostics": { "minItems": 1 } } },
+          "else": { "properties": { "parseDiagnostics": { "maxItems": 0 } } }
+        }
+      ]
+    },
+    "span": {
+      "type": "object",
+      "required": ["start", "length"],
+      "properties": {
+        "start": { "$ref": "#/$defs/coordinate" },
+        "length": { "$ref": "#/$defs/coordinate" }
+      }
+    },
+    "spdxDiagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "span", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["warning", "error"] },
+        "span": { "$ref": "#/$defs/span" },
+        "message": { "type": "string" }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "required": ["identifier", "span", "role", "lookupStatus", "canonicalIdentifier", "isDeprecated"],
+      "properties": {
+        "identifier": { "type": "string", "minLength": 1 },
+        "span": { "$ref": "#/$defs/span" },
+        "role": { "enum": ["license", "exception"] },
+        "lookupStatus": { "enum": ["known", "unknown", "wrongKind"] },
+        "canonicalIdentifier": { "type": ["string", "null"] },
+        "isDeprecated": { "type": ["boolean", "null"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "lookupStatus": { "const": "known" } } },
+          "then": { "properties": { "canonicalIdentifier": { "type": "string" }, "isDeprecated": { "type": "boolean" } } },
+          "else": { "properties": { "canonicalIdentifier": { "type": "null" }, "isDeprecated": { "type": "null" } } }
+        }
+      ]
+    },
+    "reference": {
+      "type": "object",
+      "required": ["documentId", "licenseId", "span"],
+      "properties": {
+        "documentId": { "type": ["string", "null"] },
+        "licenseId": { "type": "string", "minLength": 1 },
+        "span": { "$ref": "#/$defs/span" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": ["hasIdentifierErrors", "hasUnresolvedReferences", "diagnosticsTruncated",
+        "identifierOccurrences", "references", "diagnostics"],
+      "properties": {
+        "hasIdentifierErrors": { "type": "boolean" },
+        "hasUnresolvedReferences": { "type": "boolean" },
+        "diagnosticsTruncated": { "type": "boolean" },
+        "identifierOccurrences": { "type": "array", "items": { "$ref": "#/$defs/occurrence" } },
+        "references": { "type": "array", "items": { "$ref": "#/$defs/reference" } },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/spdxDiagnostic" } }
+      }
+    }
+  }
+}

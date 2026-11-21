@@ -4,13 +4,14 @@ Publishing a GitHub Release starts [release.yml](../.github/workflows/release.ym
 
 The library reads SFNT/TTC, WOFF, WOFF2 and EOT metadata and separately analyzes license evidence from decoded name records. The CLI provides file/stdin inspection with plain/JSON reports and optional license evidence. A release workflow does not imply that a public version already exists.
 
-## Preview readiness
+## Candidate readiness
 
-The initial independent validation cycle is complete with documented limitations and a retained reviewed corpus baseline. Validation resumes for the specific preview candidate or relevant product changes; no broader campaign is currently implied. Neither that baseline nor a passing build or prepared archive establishes that review of the release candidate is complete.
+The initial independent validation cycle produced a reviewed corpus baseline with documented limitations. Use that baseline to check each candidate and add samples that exercise the changes proposed for the release.
 
-Before initiating the first preview publication:
+Before initiating publication of a candidate:
 
 - Complete CLI behavior, schema, installed-package and portable checks for the candidate revision.
+- Run `inspect-license` from the installed tool and portable ZIP. Check the document schema, SHA-256 of the original bytes, and UTF-16 evidence spans. Include a complete license, an unrelated NOTICE, and a missing file in the sample set.
 - Review independent validation findings for the identified package; distinguish product defects, harness defects, expected limitations and unresolved comparisons.
 - Resolve blocking issues involving crashes, loss of verified data, false completion, unsupported license conclusions or uncontrolled resource use. Recheck any changed package and retain its identity and original observations.
 - Record the evaluated package version/hash, corpus scope, environment and known coverage gaps. Preserve the reviewed baseline before expanding license analysis.
@@ -19,7 +20,7 @@ Before initiating the first preview publication:
 
 These are maintainer review criteria, not additional checks automatically enforced by the release scripts. [Initial validation results](testing.md#independent-validation) describe the evaluated development package and coverage limits.
 
-The integrated adapter/tool uses the published Spdx.Expressions 1.0.0 package. Release verification restores that exact dependency from nuget.org and checks its packaged DLL and notices. Dependency availability does not replace the remaining release-readiness checks. Unicode coverage and exhaustive fuzzing remain deferred. Its documented scope and remaining limitations must be clear. See [Testing](testing.md#verification-layers) and [Processing untrusted fonts](security.md).
+The integrated adapter/tool uses the published Spdx.Expressions 1.1.0 package. Release verification restores that exact dependency from nuget.org and checks its packaged DLL and notices. Dependency availability does not replace the remaining release-readiness checks. The optional Unicode coverage and variation-axis sections have their own completeness and budget checks. See [Testing](testing.md#verification-layers) and [Processing untrusted fonts](security.md).
 
 ## Version policy
 
@@ -97,10 +98,10 @@ See [NuGet Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org
 ## Prepare locally
 
 ```powershell
-pwsh -File eng/prepare-release.ps1 -Tag v0.1.0-preview.1
+pwsh -File eng/prepare-release.ps1 -Tag v1.0.0
 ```
 
-This performs the checks and writes `artifacts/release/0.1.0-preview.1/`. It does not create a tag, contact publishing endpoints or publish files. Restore may download build dependencies from nuget.org. A local Git tag is not required.
+This performs the checks and writes `artifacts/release/1.0.0/`. It does not create a tag, contact publishing endpoints or publish files. Restore may download build dependencies from nuget.org. A local Git tag is not required.
 
 ## Initiate a release
 
@@ -112,8 +113,8 @@ This performs the checks and writes `artifacts/release/0.1.0-preview.1/`. It doe
 Once the workflow finishes and NuGet indexing completes:
 
 ```shell
-dotnet add package Font.Metadata --version 0.1.0-preview.1
-dotnet tool install --global Font.Metadata.Tool --version 0.1.0-preview.1
+dotnet add package Font.Metadata --version 1.0.0
+dotnet tool install --global Font.Metadata.Tool --version 1.0.0
 ```
 
 ## Recover from a failed release

@@ -4,11 +4,13 @@
     <RootNamespace>Fonts.Metadata</RootNamespace>
     <IsPackable>true</IsPackable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Description>Source-preserving SPDX expression analysis of decoded font license records.</Description>
+    <Description>Source-preserving SPDX analysis of decoded font license records and external license documents.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Font.Metadata/Inspection/ResultList.cs" Link="Internal/ResultList.cs" />
     <ProjectReference Include="../Font.Metadata/Font.Metadata.csproj" />
     <PackageReference Include="Spdx.Expressions" />
+    <EmbeddedResource Include="LicenseProfiles.json" LogicalName="Font.Metadata.Spdx.LicenseProfiles.json" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
   </ItemGroup>
   <Import Project="../eng/PackageReadme.targets" />

@@ -14,7 +14,6 @@ namespace Fonts.Metadata {
     public static class FontMetadataReader {
         const int StreamBufferSize = 80 * 1024;
         const string UnreadableStreamMessage = "The stream must be readable.";
-
         /// <summary>Inspects leading metadata and preserves verified partial results. Invalid arguments throw.</summary>
         public static FontInspectionResult Inspect(byte[] data, FontReadOptions? options = null, CancellationToken cancellationToken = default) {
             ArgumentNullException.ThrowIfNull(data);
@@ -31,11 +30,12 @@ namespace Fonts.Metadata {
         }
         /// <summary>Inspects leading metadata without retaining the input span. Invalid arguments throw.</summary>
         public static FontInspectionResult Inspect(ReadOnlySpan<byte> data, FontReadOptions? options = null, CancellationToken cancellationToken = default) {
-            FontReadLimits limits = (options ?? new FontReadOptions()).Validate();
+            options ??= new FontReadOptions();
+            FontReadLimits limits = options.Validate();
             cancellationToken.ThrowIfCancellationRequested();
             if(data.Length > limits.MaxInputBytes)
                 return SfntParser.InputLimit(data.Slice(0, limits.MaxInputBytes));
-            return ContainerParser.Parse(data, limits, cancellationToken);
+            return ContainerParser.Parse(data, options, cancellationToken);
         }
         /// <summary>Inspects from the current stream position; never closes the stream and restores seekable positions in finally.</summary>
         /// <remarks>Non-seekable streams are consumed. Input beyond MaxInputBytes is not parsed. I/O and cancellation exceptions propagate.</remarks>
@@ -43,7 +43,8 @@ namespace Fonts.Metadata {
             ArgumentNullException.ThrowIfNull(stream);
             if(!stream.CanRead)
                 throw new ArgumentException(UnreadableStreamMessage, nameof(stream));
-            FontReadLimits limits = (options ?? new FontReadOptions()).Validate();
+            options ??= new FontReadOptions();
+            FontReadLimits limits = options.Validate();
             cancellationToken.ThrowIfCancellationRequested();
             long? position = stream.CanSeek ? stream.Position : null;
             byte[] buffer = ArrayPool<byte>.Shared.Rent(Math.Min(StreamBufferSize, limits.MaxInputBytes));
@@ -55,7 +56,7 @@ namespace Fonts.Metadata {
                         int read = stream.Read(buffer, 0, requested);
                         cancellationToken.ThrowIfCancellationRequested();
                         if(read == 0) {
-                            return InspectBufferedContent(content, limits, cancellationToken);
+                            return InspectBufferedContent(content, options, cancellationToken);
                         }
                         content.Write(buffer, 0, read);
                     }
@@ -66,7 +67,7 @@ namespace Fonts.Metadata {
                     cancellationToken.ThrowIfCancellationRequested();
                     if(extra >= 0)
                         return SfntParser.InputLimit(content.GetBuffer().AsSpan(0, (int)content.Length));
-                    return InspectBufferedContent(content, limits, cancellationToken);
+                    return InspectBufferedContent(content, options, cancellationToken);
                 }
             }
             finally {
@@ -117,9 +118,9 @@ namespace Fonts.Metadata {
             ArgumentNullException.ThrowIfNull(path);
             return Path.GetExtension(path).ToLowerInvariant() is ".ttf" or ".otf" or ".ttc" or ".otc" or ".woff" or ".woff2" or ".eot";
         }
-        static FontInspectionResult InspectBufferedContent(MemoryStream content, FontReadLimits limits, CancellationToken token) {
+        static FontInspectionResult InspectBufferedContent(MemoryStream content, FontReadOptions options, CancellationToken token) {
             var bytes = content.GetBuffer().AsSpan(0, (int)content.Length);
-            return ContainerParser.Parse(bytes, limits, token);
+            return ContainerParser.Parse(bytes, options, token);
         }
         static FontMetadata RequireComplete(FontInspectionResult result) {
             if(result.Status == FontReadStatus.Complete)

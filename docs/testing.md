@@ -28,7 +28,7 @@ Managed allocated bytes per operation, macro batch allocations and process peak 
 
 Completed validation reports should identify the package version and SHA-256, corpus revision and sample provenance, adapter/tool versions, options and limits, environment, and unresolved findings. Reports should distinguish reviewed expectations, observations from independent tools and baseline observations from Font.Metadata. Findings need reproducible inputs or recipes; missing required evidence must not be reported as a successful check.
 
-This completed cycle provides an initial regression baseline, not representative coverage of real-world fonts or release approval. Positive FLA002/FLA003 cases, selected negative/conflicting examples and hint provenance are covered; broad license-recognition precision/recall remains unmeasured. Long-running fuzzing, cross-platform performance and stable timing thresholds also remain open. No confirmed product finding from this bounded cycle requires an immediate code change. Release candidates and parser, decoder, limit or license-rule changes require their own scoped validation; no ongoing campaign or mandatory performance gate is implied. See [Processing untrusted fonts](security.md) for existing protections and [Preview readiness](release.md#preview-readiness) for the review before publication.
+This completed cycle provides an initial regression baseline, not representative coverage of real-world fonts or release approval. Positive FLA002/FLA003 cases, selected negative/conflicting examples and hint provenance are covered; broad license-recognition precision/recall remains unmeasured. Long-running fuzzing, cross-platform performance and stable timing thresholds also remain open. No confirmed product finding from this bounded cycle requires an immediate code change. Release candidates and parser, decoder, limit or license-rule changes require their own scoped validation; no ongoing campaign or mandatory performance gate is implied. See [Processing untrusted fonts](security.md) for existing protections and [Candidate readiness](release.md#candidate-readiness) for the review before publication.
 
 ## Recording and reusing results
 
@@ -48,6 +48,14 @@ Keep corpus checks, harness tests, worker completion and benchmark cases as sepa
 Corrections to validation tools or expectations require a dated explanation and new observations; retain the original hashed reports. Checks of a test launcher or its SDK environment do not establish a new product correctness or performance baseline. Keep their scope separate from checks of the library itself.
 
 Recheck a release candidate as a new artifact. Parser/decoder/limit changes trigger the affected corpus and robustness checks; license-rule changes trigger reviewed evidence comparisons. Performance work first needs same-package controls and a stable host baseline. A new platform/runtime needs its own environment record. These are event-driven follow-ups, not an active recurring research campaign.
+
+## Package compatibility
+
+Packing Font.Metadata and Font.Metadata.Spdx runs the .NET SDK package validation against the matching published `0.1.0-preview.1` packages. Restore downloads these comparison packages as build inputs. They add no runtime dependencies. A removed public member, an incompatible signature or a renamed parameter fails the pack. The existing package smoke consumer compiles and executes against the newly packed libraries, including an adapter call with `SpdxLicenseRegistry`.
+
+Review nullability, optional defaults, enum evolution, return values, diagnostics, default limits and license recognition separately. Binary API comparison alone cannot establish these behaviors. The installed and portable CLI checks exercise the same v1 consumer on the EOT example and on a report extended with an unknown optional property.
+
+After publication, use 1.0.0 as the stable package baseline. When 1.x gains supported APIs, advance the baseline to the latest supported release before accepting the next change so newly added APIs also receive protection.
 
 ## Available checks
 
@@ -95,7 +103,7 @@ The web-container review regressions cover inflated compressed-length declaratio
 pwsh -File eng/verify.ps1
 ```
 
-This runs offline release-script checks, restore, Release build, tests for the reader, SPDX adapter and CLI, whitespace verification, package creation and isolated package/tool checks. An optional `-Version 1.2.3-preview.1` overrides the development version consistently for restore, build and pack.
+This runs offline release-script checks, restore, a non-incremental Release build, tests for the reader, SPDX adapter and CLI, whitespace verification, package creation and isolated package/tool checks. An optional `-Version 1.2.3-preview.1` overrides the development version for restore, build and pack. Package verification checks the runtime dependency manifest in the portable ZIP against that version and the assembly and file versions of the bundled reader and adapter.
 
 Outputs are ignored under artifacts: TRX reports, nupkg files and isolated package-smoke runs. Each smoke run uses a unique directory and cache to avoid stale packages with the same version. The package consumer restores from a local-only feed.
 
@@ -134,11 +142,15 @@ Changes to [license rules](licensing.md) require positive and negative examples,
 
 Process tests cover all formats, argument validation before I/O, binary stdin, original face/record indexes, EOT recovery, optional source-linked license evidence, invariant JSON and terminal-safe text. Internal host tests deterministically cancel waiting asynchronous pipe reads and large report writes, separate input/output failures, and exercise incremental flushing. A fixed plain snapshot protects readable layout. Review regressions close a real child-process output pipe, cancel help/version output, check short reads and oversized stdin producers, and verify argument/cancellation/I/O precedence. The process timeout covers input delivery as well as output collection and process exit.
 
-The shared eng/verify-cli.ps1 smoke check runs against both installed and extracted portable tools through eng/test-cli-verification.ps1. It validates every option combination and complete/partial/I/O reports against docs/cli.schema.json, validates documented examples, and rejects deliberately invalid schema examples. Validation is local and requires no downloaded schema or font.
+The shared eng/verify-cli.ps1 smoke check runs against both installed and extracted portable tools through eng/test-cli-verification.ps1. It validates complete, partial and I/O reports and documented examples against docs/cli.schema.json. A variable/static pair checks automatic fvar output, explicit per-face audit, and the schema rules for each mode. Validation is local and requires no downloaded schema or font.
 
 Console Ctrl+C signal delivery is host-dependent and is not simulated by killing a child process. Local cancellation tests use a real asynchronous named pipe and the same command token path. They do not establish immediate cancellation of all native stdin/file/output operations. CI verifies cross-platform execution, with macOS covered on main, manual runs and releases; a local Windows run does not prove Linux/macOS behavior.
 
 The verification-script regression launches a separate PowerShell process with the GitHub Actions preamble, dot-sourced `-Command` invocation and `exit $LASTEXITCODE` footer. A successful smoke test must return zero and resume its caller despite expected CLI codes 1 and 3. An unexpected CLI failure and an invalid JSON example in an isolated fixture must still fail the shell. The smoke script explicitly exits zero only after all assertions and cleanup; exceptions are not suppressed. Per-case stdout/stderr remain in the package/portable smoke artifacts.
+
+## External license document checks
+
+The document analyzer tests use independent plain-text license fixtures from the publishers and SPDX. They cover full and modified texts, original ranges, explicit expressions, and replacement or extension of the embedded catalog for individual calls. CLI tests exercise the byte boundary, original-byte digests, strict UTF-8, continuation after per-file errors and exact fragments in JSON. [SIL OFL template](https://openfontlicense.org/documents/OFL.txt) · [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0.txt) · [SPDX text templates](https://github.com/spdx/license-list-data/tree/main/text)
 
 ## SPDX integration checks
 

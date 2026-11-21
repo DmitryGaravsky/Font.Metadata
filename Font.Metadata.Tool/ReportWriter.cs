@@ -10,12 +10,15 @@ namespace Fonts.Metadata.Tool {
         }
         protected CommandOptions Options { get; }
         protected CancellationToken Token { get; }
+        protected FontVariationAxes? GetReportedAxes(FontMetadata.Face face) {
+            var axes = face.VariationAxes;
+            return Options.IncludeVariationAxes || axes is { HasTableEntry: true } ? axes : null;
+        }
         internal abstract void Begin();
         internal abstract void Write(SourceResult result);
         internal abstract void End();
         public abstract void Dispose();
     }
-
     // Explicit wire vocabulary: adding a library enum never silently changes the CLI schema.
     internal static class ReportValues {
         internal static string Status(FontReadStatus value) {

@@ -127,7 +127,7 @@ namespace Fonts.Metadata.Internal {
         static void AddUnavailable(int index, FontFaceSource source, FontSectionStatus status, ReadingContext context, uint? flavor = null) {
             var names = TableMetadata.Empty(status);
             var os2 = TableMetadata.Empty(status);
-            var face = context.CreateFace(index, flavor, names, os2, false, source);
+            var face = context.CreateFace(index, flavor, names, os2, false, source, cmap: names, fvar: names);
             context.Faces.Add(face);
         }
         sealed class HeaderFacts {

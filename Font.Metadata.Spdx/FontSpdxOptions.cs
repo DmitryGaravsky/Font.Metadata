@@ -16,7 +16,6 @@ namespace Fonts.Metadata {
         public SpdxParseOptions ParseOptions { get; init; } = new();
         /// <summary>Native validation message budget; traversal retains all occurrences. Must not be null.</summary>
         public SpdxValidationOptions ValidationOptions { get; init; } = new();
-
         internal void Check() {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxSourceRecords);
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxTotalSourceCharacters);

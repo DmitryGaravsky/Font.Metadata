@@ -11,6 +11,7 @@ namespace Fonts.Metadata.Internal {
         internal DiagnosticBag(int limit) {
             this.limit = limit;
         }
+        internal int Count { get { return items.Count; } }
         internal bool HasErrors { get; private set; }
         internal bool HasDataFailure { get; private set; }
         internal bool Truncated { get; private set; }
@@ -22,24 +23,65 @@ namespace Fonts.Metadata.Internal {
             }
             else if(!Truncated) {
                 Truncated = true;
-                items[limit - 1] = new FontDiagnostic(FontDiagnosticCodes.DiagnosticsTruncated,
-                    FontDiagnosticSeverity.Warning, FontDiagnosticCategory.LimitExceeded,
-                    DiagnosticsSuppressedMessage);
+                if(limit > 0)
+                    MarkLastSuppressed();
             }
         }
+        void MarkLastSuppressed() {
+            items[^1] = new FontDiagnostic(FontDiagnosticCodes.DiagnosticsTruncated,
+                FontDiagnosticSeverity.Warning, FontDiagnosticCategory.LimitExceeded, DiagnosticsSuppressedMessage);
+        }
+        internal ReadOnlyCollection<FontDiagnostic> SectionView() {
+            return items.Count == 0 ? ReadOnlyCollection<FontDiagnostic>.Empty : new ResultList<FontDiagnostic>(items);
+        }
+        internal void TrimSection(int keep, bool markLast) {
+            items.RemoveRange(keep, Count - keep);
+            if(markLast)
+                MarkLastSuppressed();
+        }
         internal IReadOnlyList<FontDiagnostic> Freeze() {
-            if(items.Count == 0)
-                return ReadOnlyCollection<FontDiagnostic>.Empty;
-            var snapshot = items.ToArray();
-            return Array.AsReadOnly(snapshot);
+            return ResultList<FontDiagnostic>.Snapshot(items);
         }
     }
-    internal sealed class ReadingContext {
+    internal sealed partial class ReadingContext {
         internal ReadingContext(FontReadLimits limits, CancellationToken token, Action? checkCancellation = null) {
             Limits = limits;
             Token = token;
             CheckCancellation = checkCancellation ?? token.ThrowIfCancellationRequested;
             Diagnostics = new DiagnosticBag(limits.MaxDiagnostics);
+        }
+        List<DiagnosticBag>? sectionDiagnostics;
+        int retainedSectionDiagnostics;
+        bool sectionDiagnosticsOmitted;
+        internal DiagnosticBag NewSectionDiagnostics() {
+            return new DiagnosticBag(Limits.MaxDiagnostics - retainedSectionDiagnostics);
+        }
+        internal ReadOnlyCollection<FontDiagnostic> RetainSectionDiagnostics(DiagnosticBag bag) {
+            sectionDiagnosticsOmitted |= bag.Truncated;
+            if(bag.Count > 0) {
+                sectionDiagnostics ??= new List<DiagnosticBag>();
+                sectionDiagnostics.Add(bag);
+                retainedSectionDiagnostics += bag.Count;
+            }
+            return bag.SectionView();
+        }
+        internal void FinishSectionDiagnostics() {
+            // Container and baseline-table errors may arrive after an optional section was parsed.
+            // Finalize the read-only views before publishing faces. Shared tables own one view.
+            int remaining = Limits.MaxDiagnostics - Diagnostics.Count;
+            if(sectionDiagnostics == null || (!sectionDiagnosticsOmitted && retainedSectionDiagnostics <= remaining))
+                return;
+            foreach(var bag in sectionDiagnostics) {
+                int keep = Math.Min(bag.Count, remaining);
+                remaining -= keep;
+                bag.TrimSection(keep, keep > 0 && remaining == 0);
+            }
+        }
+        internal bool IncludeUnicodeCoverage { get; init; }
+        internal bool IncludeVariationAxes { get; init; }
+        internal bool WantsOptionalTable(uint tag) {
+            return (IncludeUnicodeCoverage && tag == ContainerLayout.CmapTag) ||
+                (IncludeVariationAxes && tag == ContainerLayout.FvarTag);
         }
         internal FontReadLimits Limits { get; }
         internal CancellationToken Token { get; }
@@ -90,16 +132,27 @@ namespace Fonts.Metadata.Internal {
             if(Tables.TryGetValue(key, out var cached))
                 return cached;
             var location = source.At(offset);
-            var result = tag == ContainerLayout.NameTag
-                ? MetadataTables.ReadNames(data, location, this)
-                : MetadataTables.ReadOs2(data, location, this);
+            TableMetadata result;
+            if(tag == ContainerLayout.CmapTag) {
+                var coverage = CmapParser.Read(data, location, this);
+                result = new TableMetadata { Status = coverage.Status, Coverage = coverage };
+            }
+            else if(tag == ContainerLayout.FvarTag) {
+                var axes = FvarParser.Read(data, location, this);
+                result = new TableMetadata { Status = axes.Status, Axes = axes };
+            }
+            else if(tag == ContainerLayout.NameTag)
+                result = MetadataTables.ReadNames(data, location, this);
+            else
+                result = MetadataTables.ReadOs2(data, location, this);
             if(!complete)
                 result = result.WithIncompleteSource();
             Tables.Add(key, result);
             return result;
         }
         internal FontMetadata.Face CreateFace(int index, uint? flavor, TableMetadata names, TableMetadata os2,
-            bool directoryValid = true, FontFaceSource source = FontFaceSource.Container) {
+            bool directoryValid = true, FontFaceSource source = FontFaceSource.Container,
+            TableMetadata? cmap = null, TableMetadata? fvar = null) {
             foreach(var diagnostic in names.Diagnostics)
                 Diagnostics.Add(diagnostic.ForFace(index));
             foreach(var diagnostic in os2.Diagnostics)
@@ -108,7 +161,40 @@ namespace Fonts.Metadata.Internal {
             HasUsableMetadata |= IsUsable(names.Status) || IsUsable(os2.Status) ||
                 (directoryValid && names.Status == FontSectionStatus.Missing && os2.Status == FontSectionStatus.Missing);
             return new FontMetadata.Face(index, flavor, names.Status, os2.Status, names.Records,
-                os2.VendorId, os2.Permissions, names.PreferredNames, source);
+                os2.VendorId, os2.Permissions, names.PreferredNames, source, GetCoverage(cmap), GetAxes(fvar));
+        }
+        internal TableMetadata SharedTableFailure(SourceLocation source, long offset, long length, uint tag,
+            int faceIndex, FontSectionStatus status, FontDiagnostic diagnostic) {
+            if(!WantsOptionalTable(tag))
+                return TableFailure(tag, status, diagnostic.ForFace(faceIndex));
+            var key = (source.Id, tag, offset, length);
+            if(!Tables.TryGetValue(key, out var result)) {
+                result = TableFailure(tag, status, diagnostic);
+                Tables.Add(key, result);
+            }
+            return result;
+        }
+        internal TableMetadata TableFailure(uint tag, FontSectionStatus status, FontDiagnostic diagnostic) {
+            if(!WantsOptionalTable(tag)) {
+                Diagnostics.Add(diagnostic);
+                return TableMetadata.Empty(status);
+            }
+            var bag = NewSectionDiagnostics();
+            bag.Add(diagnostic);
+            var messages = RetainSectionDiagnostics(bag);
+            if(tag == ContainerLayout.CmapTag)
+                return new TableMetadata { Status = status, Coverage = new FontUnicodeCoverage(status, messages) };
+            return new TableMetadata { Status = status, Axes = new FontVariationAxes(status, hasTableEntry: true, diagnostics: messages) };
+        }
+        internal FontUnicodeCoverage? GetCoverage(TableMetadata? table) {
+            if(!IncludeUnicodeCoverage)
+                return null;
+            return table?.Coverage ?? new FontUnicodeCoverage(table?.Status ?? FontSectionStatus.NotRead);
+        }
+        internal FontVariationAxes? GetAxes(TableMetadata? table) {
+            if(!IncludeVariationAxes)
+                return null;
+            return table?.Axes ?? new FontVariationAxes(table?.Status ?? FontSectionStatus.NotRead, hasTableEntry: false);
         }
         internal static bool IsComplete(FontSectionStatus status) {
             return status is FontSectionStatus.Complete or FontSectionStatus.Missing;
@@ -116,18 +202,24 @@ namespace Fonts.Metadata.Internal {
         internal static bool IsUsable(FontSectionStatus status) {
             return status is FontSectionStatus.Complete or FontSectionStatus.Partial;
         }
-
-        internal Dictionary<(int Source, uint Tag, long Offset, int Length), TableMetadata> Tables { get; } = new();
+        internal Dictionary<(int Source, uint Tag, long Offset, long Length), TableMetadata> Tables { get; } = new();
     }
     internal sealed class TableMetadata {
         internal static TableMetadata Empty(FontSectionStatus status) {
             return new TableMetadata { Status = status };
+        }
+        internal static TableMetadata UnreadableEntry(uint tag, FontSectionStatus status) {
+            if(tag == ContainerLayout.FvarTag)
+                return new TableMetadata { Status = status, Axes = new FontVariationAxes(status, hasTableEntry: true) };
+            return Empty(status);
         }
         internal TableMetadata WithIncompleteSource() {
             if(Status != FontSectionStatus.Complete)
                 return this;
             return new TableMetadata {
                 Status = FontSectionStatus.Partial,
+                Coverage = Coverage?.WithStatus(FontSectionStatus.Partial),
+                Axes = Axes?.WithStatus(FontSectionStatus.Partial),
                 Records = Records,
                 PreferredNames = PreferredNames,
                 VendorId = VendorId,
@@ -135,6 +227,8 @@ namespace Fonts.Metadata.Internal {
                 Diagnostics = Diagnostics
             };
         }
+        internal FontUnicodeCoverage? Coverage { get; init; }
+        internal FontVariationAxes? Axes { get; init; }
         internal FontSectionStatus Status { get; init; }
         internal IReadOnlyList<FontMetadata.NameRecord> Records { get; init; } = ReadOnlyCollection<FontMetadata.NameRecord>.Empty;
         internal IReadOnlyDictionary<int, string> PreferredNames { get; init; } = ReadOnlyDictionary<int, string>.Empty;

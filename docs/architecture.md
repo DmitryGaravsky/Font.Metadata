@@ -9,20 +9,22 @@ The repository contains a .NET 10 metadata library, an optional SPDX adapter, a 
 | Container | One supplied input origin. `FontMetadata` describes its format, available faces and independent EOT header facts; `FontInspectionResult` adds overall status and diagnostics. No public `FontContainer` type exists. |
 | Font | A general domain term, not an additional public object or a globally identified font family. A file can contain several faces. |
 | Face | `FontMetadata.Face`, with its original container index, source, decoded records, preferred values and section statuses. An unreadable bounded face can remain a placeholder. |
-| Table | A tagged logical SFNT data section. Physical ranges and decoded buffers are internal; the public API exposes supported name/OS/2 metadata and statuses, not a general table inventory or `FontTable` object. |
+| Table | A tagged logical SFNT data section. Physical ranges and decoded buffers are internal; the public API exposes name/OS/2 metadata and optional cmap/fvar sections with their own status. |
 | Record | `FontMetadata.NameRecord`: a successfully decoded name entry with original index, IDs and language context. It is not a copy of the encoded record bytes. |
 
 ```text
 Input container → FontInspectionResult (status + diagnostics)
                        └── FontMetadata (container facts)
                             ├── Faces: original indexes + metadata
-                            │    └── NameRecords → preferred values / license evidence
+                            │    ├── NameRecords → preferred values / license evidence
+                            │    ├── UnicodeCoverage → selected cmap and scalar ranges (opt-in)
+                            │    └── VariationAxes → ordered fvar axes and name IDs (opt-in)
                             └── Eot: independent header facts, when available
 ```
 
 TTC/OTC and WOFF2 collection faces can reference shared tables. Physical sharing does not merge faces or renumber their records; internal caches can reuse immutable decoded data, while diagnostics identify each affected face. Table ownership is therefore not a tree of exclusive byte buffers. Physical offsets and logical table offsets remain separate coordinates.
 
-Reading names from a variable font does not enumerate its axes or named instances. The current model has no variation-instance identity, `Variations` property or general `Tables` collection. Adding those capabilities requires an explicit model and compatibility review; the present metadata model neither implements them nor proves that every future extension will be additive.
+When requested, each face exposes immutable `UnicodeCoverage` and `VariationAxes` sections with independent status and diagnostics. The fvar name ID refers to records on that face. Named instances have no public representation.
 
 ## Design principles
 
@@ -50,7 +52,7 @@ Font.Metadata/
 ├── Directory.Packages.props        central dependency versions
 ├── global.json                     .NET SDK selection
 ├── NuGet.Config                    public dependency source
-├── Font.Metadata.Spdx/             optional expression analyzer and immutable results
+├── Font.Metadata.Spdx/             optional NAME expression and external document analyzers
 ├── Font.Metadata.Spdx.Tests/       source, limit and native outcome contracts
 ├── Font.Metadata/
 │   ├── FontMetadata.cs                  immutable metadata and nested models
@@ -144,11 +146,11 @@ The core reader has no application-layer dependencies, package dependencies or p
                          │
              per-face independent recovery
                          ▼
-           verified name and OS/2 ranges
+       verified name, OS/2 and selected cmap/fvar ranges
                          │
-       shared table + preferred names + string budget
+       shared table cache and per-container work limits
                          ▼
-       decoded records / preferred values / diagnostics
+      records / preferred values / optional sections / diagnostics
                          │
                          ▼
              immutable FontInspectionResult
@@ -207,18 +209,23 @@ Matching uses fixed immutable dictionaries and iterative scanning; it does not u
 
 Known expressions, exceptions and unknown variants fail whole-declaration matching; no operand is extracted as an unqualified license. Quote, parenthesis and URL boundaries prevent text inside them from being treated as separate statements. Independent records and explicit statements remain analyzable. See [Licensing](licensing.md) for the finite supported grammar and its limits.
 
+External documents enter the optional SPDX adapter as caller-supplied text with no face or record dependency. The analyzer retains exact fragments and native SPDX outcomes. Heading and full-text rules come from one embedded JSON catalog or an immutable catalog supplied by the caller for that invocation. The CLI owns bounded reading, SHA-256 of the source bytes and UTF-8 decoding. [Document API](api.md#external-license-document-analysis)
+
 ## Runtime and validation boundaries
 
-All six projects target net10.0. The reader is self-contained. The optional adapter uses a pinned PackageReference; the published Spdx.Expressions 1.0.0 package is restored from nuget.org for local and CI builds. No product project references an external checkout. See [SPDX build](spdx.md#build-and-verification).
+All six projects target net10.0. The reader is self-contained. The optional adapter uses a pinned PackageReference; the published Spdx.Expressions 1.1.0 package is restored from nuget.org for local and CI builds. No product project references an external checkout. See [SPDX build](spdx.md#build-and-verification).
 
 Complete describes supported metadata extraction, not comprehensive font validity. See [Formats](formats.md) for exactly what is checked and [Testing](testing.md) for verification.
 
 ## CLI flow
 
 ```text
-Validated arguments → one input → Inspect → optional Analyze per face
-                                       → explicit JSON projection / plain writer
-                                       → aggregate exit status
+Validated arguments
+├── inspect → one font input → Inspect → optional analysis per face
+│                                     └── font report
+└── inspect-license → one file → bounded read, digest and UTF-8 decoding
+                              └── Analyze document → document report
+Both commands stream per-source results and aggregate the exit status.
 ```
 
-CommandOptions owns grammar; Command owns input lifetimes, cancellation and failure boundaries. StandardOutput uses a borrowed OS handle for redirected output so broken pipes remain observable as I/O failures; it never closes the process-owned handle. ReportValues defines the wire vocabulary, while JsonReportWriter and PlainReportWriter present results without accumulating the whole batch. Library models and parsers have no CLI dependency. The report contract is versioned separately in cli.schema.json.
+CommandOptions owns the grammar. Command owns cancellation and the output failure boundary. StandardOutput uses a borrowed OS handle for redirected output so broken pipes remain observable as I/O failures; it never closes the process-owned handle. Library models and parsers have no CLI dependency. Each command has its own versioned report schema. [Font inspection](cli.schema.json) · [Document inspection](cli-license.schema.json)
