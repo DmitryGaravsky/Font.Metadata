@@ -16,6 +16,8 @@ The repository contains a .NET 10 metadata library, an optional SPDX adapter, a 
 Input container → FontInspectionResult (status + diagnostics)
                        └── FontMetadata (container facts)
                             ├── Faces: original indexes + metadata
+                            │    ├── Head / GlyphCount → head and maxp section statuses
+                            │    ├── TableInventory → ordered directory entries (opt-in)
                             │    ├── NameRecords → preferred values / license evidence
                             │    ├── UnicodeCoverage → selected cmap and scalar ranges (opt-in)
                             │    └── VariationAxes → ordered fvar axes and name IDs (opt-in)
@@ -146,7 +148,7 @@ The core reader has no application-layer dependencies, package dependencies or p
                          │
              per-face independent recovery
                          ▼
-       verified name, OS/2 and selected cmap/fvar ranges
+       name, OS/2, head, maxp and requested cmap/fvar metadata
                          │
        shared table cache and per-container work limits
                          ▼

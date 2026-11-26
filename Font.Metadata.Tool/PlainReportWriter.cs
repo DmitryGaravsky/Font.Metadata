@@ -52,6 +52,8 @@ namespace Fonts.Metadata.Tool {
                 foreach(var diagnostic in result.Inspection.Diagnostics) {
                     Token.ThrowIfCancellationRequested();
                     writer.WriteLine($"  {ReportValues.Severity(diagnostic.Severity)} {diagnostic.Code} ({ReportValues.Category(diagnostic.Category)}): {Escape(diagnostic.Message)}");
+                    if(diagnostic.LimitReason != null)
+                        writer.WriteLine($"    Limit: {diagnostic.LimitReason}");
                     writer.WriteLine($"    Face={Number(diagnostic.FaceIndex)}, table={Escape(diagnostic.TableTag)}, byteOffset={Number(diagnostic.ByteOffset)}, tableByteOffset={Number(diagnostic.TableByteOffset)}");
                 }
             }
@@ -85,6 +87,19 @@ namespace Fonts.Metadata.Tool {
                 writer.WriteLine($"  SFNT flavor: {Hex(face.SfntFlavor, 8)}");
                 writer.WriteLine($"  Name table: {ReportValues.Section(face.NameTableStatus)}");
                 writer.WriteLine($"  OS/2 table: {ReportValues.Section(face.Os2TableStatus)}");
+                writer.WriteLine($"  head: {ReportValues.Section(face.HeadTableStatus)}");
+                if(face.Head is { } head) {
+                    writer.WriteLine($"    fontRevision={head.FontRevision}, created={head.Created}, modified={head.Modified}");
+                    writer.WriteLine($"    unitsPerEm={head.UnitsPerEm}, flags={head.Flags}, macStyle={head.MacStyle}");
+                }
+                writer.WriteLine($"  maxp: {ReportValues.Section(face.MaxpTableStatus)}, glyphCount={Number(face.GlyphCount)}");
+                if(face.TableInventory is { } inventory) {
+                    writer.WriteLine($"  Table inventory: {ReportValues.Section(inventory.Status)}");
+                    foreach(var entry in inventory.Entries) {
+                        Token.ThrowIfCancellationRequested();
+                        writer.WriteLine($"    {Escape(entry.Tag)} length={entry.Length}, storedLength={entry.StoredLength}, compressed={entry.IsCompressed}, transformed={entry.IsTransformed}, transformVersion={Number(entry.TransformVersion)}");
+                    }
+                }
                 writer.WriteLine($"  Vendor ID: {Escape(face.VendorId)}");
                 writer.WriteLine($"  Embedding permissions (raw): {Hex(face.EmbeddingPermissions, 4)}");
                 foreach(var field in ReportValues.Preferred(face)) {
@@ -135,6 +150,8 @@ namespace Fonts.Metadata.Tool {
         void WriteSectionDiagnostics(IReadOnlyList<FontDiagnostic> diagnostics) {
             foreach(var diagnostic in diagnostics) {
                 Token.ThrowIfCancellationRequested();
+                if(diagnostic.LimitReason != null)
+                    writer.WriteLine($"    Limit: {diagnostic.LimitReason}");
                 writer.WriteLine($"    {diagnostic.Code} at table offset {Number(diagnostic.TableByteOffset)}: {Escape(diagnostic.Message)}");
             }
         }

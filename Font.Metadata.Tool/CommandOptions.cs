@@ -13,6 +13,7 @@ namespace Fonts.Metadata.Tool {
         internal bool InspectLicense { get; init; }
         internal bool Json { get; init; }
         internal bool IncludeUnicodeCoverage { get; init; }
+        internal bool IncludeTableInventory { get; init; }
         internal bool IncludeVariationAxes { get; init; }
         internal bool IncludeNameRecords { get; init; }
         internal bool AnalyzeLicenses { get; init; }
@@ -34,7 +35,7 @@ namespace Fonts.Metadata.Tool {
                 return false;
             bool inspectLicense = args[0] == "inspect-license";
             bool literal = false, json = false, records = false, licenses = false, spdx = false;
-            bool coverage = false, axes = false;
+            bool coverage = false, axes = false, inventory = false;
             int maxInput = options.MaxInputBytes;
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var sources = new List<InputSource>();
@@ -52,6 +53,9 @@ namespace Fonts.Metadata.Tool {
                     if(!seen.Add(argument))
                         return false;
                     switch(argument) {
+                        case "--include-table-inventory" when !inspectLicense:
+                            inventory = true;
+                            break;
                         case "--include-unicode-coverage" when !inspectLicense:
                             coverage = true;
                             break;
@@ -92,6 +96,7 @@ namespace Fonts.Metadata.Tool {
                 Json = json,
                 IncludeUnicodeCoverage = coverage,
                 IncludeVariationAxes = axes,
+                IncludeTableInventory = inventory,
                 IncludeNameRecords = records,
                 AnalyzeLicenses = licenses,
                 AnalyzeSpdx = spdx,

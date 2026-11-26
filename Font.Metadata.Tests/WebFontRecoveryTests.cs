@@ -57,6 +57,7 @@ namespace Fonts.Metadata.Tests {
             Assert.That(result.Metadata!.Faces[0].FamilyName, Is.EqualTo("Example Sans"));
             Assert.That(result.Metadata.Faces[0].NameTableStatus, Is.EqualTo(FontSectionStatus.Partial));
             Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain(FontDiagnosticCodes.LimitExceeded));
+            Assert.That(result.Diagnostics.Single(d => d.Code == FontDiagnosticCodes.LimitExceeded).LimitReason, Is.EqualTo("MaxMtxPayloadBytes"));
         }
         [Test]
         public void MtxMainAndEudcShareWorkButHaveSeparatePayloadCaps() {

@@ -47,7 +47,23 @@ try {
     foreach($example in Get-ChildItem -LiteralPath $examples -Filter '*.json') {
         if(-not (Test-Json -LiteralPath $example.FullName -SchemaFile $schema)) { throw 'Documented JSON example is invalid.' }
     }
-    $eotFile = Join-Path $examples 'Recovery.eot'
+    $inventoryJson = & $Executable @Prefix inspect valid.ttf partial.ttf --include-table-inventory --format json
+    if($LASTEXITCODE -ne 1) { throw 'Inventory inspection lost the partial result.' }
+    $inventoryText = $inventoryJson -join [Environment]::NewLine
+    if(-not (Test-Json -Json $inventoryText -SchemaFile $schema)) { throw 'Invalid table inventory report.' }
+    foreach($field in @('glyphCount', 'head', 'headTableStatus', 'maxpTableStatus', 'tableInventory', 'storedLength', 'limitReason', 'includeTableInventory')) {
+        $invalid = $inventoryText | ConvertFrom-Json -AsHashtable
+        $face = $invalid.results[0].metadata.faces[0]
+        switch($field) {
+            'storedLength' { $face.tableInventory.entries[0].storedLength = -1 }
+            'limitReason' { $invalid.results[1].diagnostics[0]['limitReason'] = 123 }
+            'includeTableInventory' { $invalid.options.Remove('includeTableInventory') }
+            default { $face[$field] = $false }
+        }
+        if(Test-Json -Json ($invalid | ConvertTo-Json -Depth 100) -SchemaFile $schema -ErrorAction SilentlyContinue) {
+            throw ("Schema accepted invalid {0}." -f $field)
+        }
+    }
     # A single fvar entry declares one wght axis; valid.ttf has only a name table.
     $variable = [Convert]::FromHexString(
         '00010000000100100000000066766172000000000000001C00000024' +
@@ -75,10 +91,13 @@ try {
             throw 'Schema accepted incorrect static-face axis reporting.'
         }
     }
-    $eotJson = & $Executable @Prefix inspect $eotFile --format json
+    Copy-Item -LiteralPath (Join-Path $examples 'Recovery.eot') -Destination 'Recovery.eot'
+    $eotJson = & $Executable @Prefix inspect Recovery.eot --include-name-records --analyze-licenses --format json
     if($LASTEXITCODE -ne 1) { throw 'The documented EOT input must give a partial inspection.' }
     $eotText = $eotJson -join "`n"
     if(-not (Test-Json -Json $eotText -SchemaFile $schema)) { throw 'Invalid EOT example report.' }
+    $documentedEot = (Get-Content -LiteralPath (Join-Path $examples 'cli-eot-recovery.json')) -join "`n"
+    if($eotText -cne $documentedEot) { throw 'The documented 1.1.0 EOT report differs from the CLI output.' }
     $eotReport = $eotText | ConvertFrom-Json
     if($eotReport.results[0].status -cne 'partial') { throw 'Expected partial EOT metadata.' }
     $readFlags = Join-Path $examples 'read-embedding-flags.ps1'

@@ -5,6 +5,8 @@ using System.Text;
 namespace Fonts.Metadata.Internal {
     internal static class ContainerLayout {
         internal const int Alignment = 4, SfntHeaderSize = 12, SfntRecordSize = 16;
+        internal static readonly uint HeadTag = BinaryPrimitives.ReadUInt32BigEndian("head"u8);
+        internal static readonly uint MaxpTag = BinaryPrimitives.ReadUInt32BigEndian("maxp"u8);
         internal static readonly uint NameTag = BinaryPrimitives.ReadUInt32BigEndian("name"u8);
         internal static readonly uint Os2Tag = BinaryPrimitives.ReadUInt32BigEndian("OS/2"u8);
         internal static readonly uint CmapTag = BinaryPrimitives.ReadUInt32BigEndian("cmap"u8);
@@ -18,6 +20,11 @@ namespace Fonts.Metadata.Internal {
         }
         internal static bool InBounds(long offset, long length, long size) {
             return offset >= 0 && length >= 0 && offset <= size && length <= size - offset;
+        }
+        internal static FontSectionStatus InventoryStatus(bool complete, int count) {
+            if(complete)
+                return FontSectionStatus.Complete;
+            return count == 0 ? FontSectionStatus.Invalid : FontSectionStatus.Partial;
         }
         internal static bool IsMetadata(uint tag) {
             return tag == NameTag || tag == Os2Tag;

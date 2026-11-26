@@ -61,6 +61,7 @@ namespace Fonts.Metadata.Tests {
             Assert.That(limited.Metadata!.Faces[0].NameRecords, Is.Empty);
             var retained = Inspect(data, new FontReadLimits { MaxRetainedDecodedBytes = names.Length - 1 });
             Assert.That(retained.Metadata!.Faces[0].NameTableStatus, Is.EqualTo(FontSectionStatus.NotRead));
+            Assert.That(retained.Diagnostics.Single().LimitReason, Is.EqualTo("MaxRetainedDecodedBytes"));
         }
         [TestCase(0)]
         [TestCase(1)]
@@ -77,6 +78,7 @@ namespace Fonts.Metadata.Tests {
             var exhausted = Inspect(data, new FontReadLimits { MaxFaces = 1, MaxWoff2TableReferences = 2 });
             Assert.That(exhausted.Status, Is.EqualTo(FontReadStatus.Failed));
             Assert.That(exhausted.Metadata!.Faces[0].NameRecords, Is.Empty);
+            Assert.That(exhausted.Diagnostics.Select(d => d.LimitReason), Does.Contain("MaxWoff2TableReferences"));
         }
         [TestCase("name", FontSectionStatus.Missing, FontSectionStatus.Missing, false)]
         [TestCase("fvar", FontSectionStatus.Missing, FontSectionStatus.NotRead, true)]
@@ -113,7 +115,9 @@ namespace Fonts.Metadata.Tests {
         [Test]
         public void Woff2DictionaryAndReferenceBudgetsAreIndependent() {
             byte[] data = Woff2([new Table("name", NameData()), new Table("OS/2", Os2())], [[0, 1], [0, 1]]);
-            Assert.That(Inspect(data, new FontReadLimits { MaxWoff2Tables = 1 }).Status, Is.EqualTo(FontReadStatus.Failed));
+            var limited = Inspect(data, new FontReadLimits { MaxWoff2Tables = 1 });
+            Assert.That(limited.Status, Is.EqualTo(FontReadStatus.Failed));
+            Assert.That(limited.Diagnostics.Single().LimitReason, Is.EqualTo("MaxWoff2Tables"));
             Assert.That(Inspect(data, new FontReadLimits { MaxWoff2Tables = 2, MaxWoff2TableReferences = 4 }).Status,
                 Is.EqualTo(FontReadStatus.Complete));
         }
@@ -247,6 +251,7 @@ namespace Fonts.Metadata.Tests {
             Assert.That(partial.Metadata!.Eot!.FamilyName, Is.EqualTo("Container Family"));
             Assert.That(partial.Metadata.Eot.StyleName, Is.Null);
             Assert.That(partial.Metadata.EotHeaderStatus, Is.EqualTo(FontSectionStatus.Partial));
+            Assert.That(partial.Diagnostics.Where(d => d.Code == FontDiagnosticCodes.LimitExceeded).Select(d => d.LimitReason), Does.Contain("MaxNameStringBytes"));
         }
         [Test]
         public void SuppressedContainerFailuresStillPreventComplete() {

@@ -61,7 +61,8 @@ namespace Fonts.Metadata.Tool.Tests {
             var result = await Inspect(data);
             Assert.That(result.Code, Is.EqualTo(1));
             var diagnostics = result.Json().GetProperty("results")[0].GetProperty("diagnostics").EnumerateArray();
-            Assert.That(diagnostics.Any(d => d.GetProperty("category").GetString() == "limitExceeded"), Is.True);
+            Assert.That(diagnostics.Single(d => d.GetProperty("code").GetString() == "FM_LIMIT_EXCEEDED")
+                .GetProperty("limitReason").GetString(), Is.EqualTo("MaxExpansionRatio"));
             Assert.That(result.Error, Is.Empty);
         }
         [Test]
@@ -83,6 +84,8 @@ Face 0:
   SFNT flavor: 0x00010000
   Name table: complete
   OS/2 table: complete
+  head: missing
+  maxp: missing, glyphCount=null
   Vendor ID: "TEST"
   Embedding permissions (raw): 0x0000
   Family name: "Example"

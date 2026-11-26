@@ -187,8 +187,10 @@ namespace Fonts.Metadata.Tests {
             var coverage = Parse(table, new FontReadLimits { MaxTotalCmapWork = budget });
             Assert.That(coverage.Status, Is.EqualTo(status));
             Assert.That(coverage.Ranges, Has.Count.EqualTo(budget - 1));
-            if(status != FontSectionStatus.Complete)
+            if(status != FontSectionStatus.Complete) {
                 Assert.That(coverage.Diagnostics.Single().Code, Is.EqualTo(FontDiagnosticCodes.LimitExceeded));
+                Assert.That(coverage.Diagnostics.Single().LimitReason, Is.EqualTo("MaxTotalCmapWork"));
+            }
         }
         [Test]
         public void ResultBudgetChargesOnlyCompactRangesAndPreservesTheirVerifiedPrefix() {
@@ -197,6 +199,7 @@ namespace Fonts.Metadata.Tests {
             Assert.That(coverage.Status, Is.EqualTo(FontSectionStatus.Partial));
             Assert.That(Intervals(coverage), Is.EqualTo(new[] { (65, 66) }));
             Assert.That(coverage.Diagnostics.Single().Category, Is.EqualTo(FontDiagnosticCategory.LimitExceeded));
+            Assert.That(coverage.Diagnostics.Single().LimitReason, Is.EqualTo("MaxTotalUnicodeRanges"));
         }
         [Test]
         public void CancellationAndWorkBudgetReachIntoTheGlyphArray() {

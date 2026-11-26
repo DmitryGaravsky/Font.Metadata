@@ -33,7 +33,7 @@ namespace Fonts.Metadata.Internal {
             }
             if(count > context.Limits.MaxTablesPerFace) {
                 context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, CountOffset, 0,
-                    category: FontDiagnosticCategory.LimitExceeded);
+                    category: FontDiagnosticCategory.LimitExceeded, limitReason: nameof(FontReadLimits.MaxTablesPerFace));
                 return;
             }
             var tables = new Dictionary<uint, Entry>();
@@ -104,7 +104,23 @@ namespace Fonts.Metadata.Internal {
             var os2 = ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.Os2Tag));
             var cmap = context.IncludeUnicodeCoverage ? ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.CmapTag)) : null;
             var fvar = context.IncludeVariationAxes ? ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.FvarTag)) : null;
-            var face = context.CreateFace(0, flavor, names, os2, valid, cmap: cmap, fvar: fvar);
+            var head = ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.HeadTag));
+            var maxp = ReadMetadata(data, context, tables.GetValueOrDefault(ContainerLayout.MaxpTag));
+            FontTableInventory? inventory = null;
+            if(context.IncludeTableInventory) {
+                var declarations = new List<FontTableEntry>();
+                foreach(var entry in tables.Values) {
+                    context.CheckCancellation();
+                    if(entry.Readable)
+                        declarations.Add(new FontTableEntry(ContainerLayout.TagText(entry.Tag), entry.Original, entry.Length,
+                            entry.Length != entry.Original, null, false));
+                }
+                // A complete inventory accounts for every directory record, independently of
+                // container header, padding and optional-block diagnostics.
+                var status = ContainerLayout.InventoryStatus(declarations.Count == count, declarations.Count);
+                inventory = new FontTableInventory(status, declarations);
+            }
+            var face = context.CreateFace(0, flavor, names, os2, valid, cmap: cmap, fvar: fvar, head: head, maxp: maxp, inventory: inventory);
             context.Faces.Add(face);
         }
         static bool AddOptional(ReadOnlySpan<byte> data, ReadingContext context, List<Entry> ranges,
@@ -165,7 +181,7 @@ namespace Fonts.Metadata.Internal {
             string tag = ContainerLayout.TagText(entry.Tag);
             if(entry.Original > context.Limits.MaxTableBytes) {
                 var diagnostic = new FontDiagnostic(FontDiagnosticCodes.LimitExceeded, FontDiagnosticSeverity.Error,
-                    FontDiagnosticCategory.LimitExceeded, ContainerMessages.Limit, 0, tag, entry.Start);
+                    FontDiagnosticCategory.LimitExceeded, ContainerMessages.Limit, 0, tag, entry.Start, limitReason: nameof(FontReadLimits.MaxTableBytes));
                 return context.TableFailure(entry.Tag, FontSectionStatus.NotRead, diagnostic);
             }
             var content = data.Slice((int)entry.Start, (int)entry.Length);
@@ -183,9 +199,9 @@ namespace Fonts.Metadata.Internal {
                     }
                 }
             }
-            catch(DecodeLimitException) {
+            catch(DecodeLimitException ex) {
                 var diagnostic = new FontDiagnostic(FontDiagnosticCodes.LimitExceeded, FontDiagnosticSeverity.Error,
-                    FontDiagnosticCategory.LimitExceeded, ContainerMessages.Limit, 0, tag, entry.Start);
+                    FontDiagnosticCategory.LimitExceeded, ContainerMessages.Limit, 0, tag, entry.Start, limitReason: ex.Reason);
                 return context.TableFailure(entry.Tag, FontSectionStatus.NotRead, diagnostic);
             }
             catch(InvalidDataException) {

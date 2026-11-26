@@ -51,11 +51,9 @@ Recheck a release candidate as a new artifact. Parser/decoder/limit changes trig
 
 ## Package compatibility
 
-Packing Font.Metadata and Font.Metadata.Spdx runs the .NET SDK package validation against the matching published `0.1.0-preview.1` packages. Restore downloads these comparison packages as build inputs. They add no runtime dependencies. A removed public member, an incompatible signature or a renamed parameter fails the pack. The existing package smoke consumer compiles and executes against the newly packed libraries, including an adapter call with `SpdxLicenseRegistry`.
+Packing Font.Metadata and Font.Metadata.Spdx runs the .NET SDK package validation against the matching published `1.0.0` packages. Restore downloads these comparison packages as build inputs. They add no runtime dependencies. A removed public member, an incompatible signature or a renamed parameter fails the pack. The existing package smoke consumer compiles and executes against the newly packed libraries, including an adapter call with `SpdxLicenseRegistry`.
 
 Review nullability, optional defaults, enum evolution, return values, diagnostics, default limits and license recognition separately. Binary API comparison alone cannot establish these behaviors. The installed and portable CLI checks exercise the same v1 consumer on the EOT example and on a report extended with an unknown optional property.
-
-After publication, use 1.0.0 as the stable package baseline. When 1.x gains supported APIs, advance the baseline to the latest supported release before accepting the next change so newly added APIs also receive protection.
 
 ## Available checks
 

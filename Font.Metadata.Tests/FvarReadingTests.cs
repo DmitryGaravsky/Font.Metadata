@@ -152,6 +152,7 @@ namespace Fonts.Metadata.Tests {
             }));
             Assert.That(sections.Select(item => item.Axes.Count), Is.EqualTo(new[] { 1, 1, 1, 0 }));
             Assert.That(sections[2].Diagnostics.Single().Code, Is.EqualTo(FontDiagnosticCodes.LimitExceeded));
+            Assert.That(sections[2].Diagnostics.Single().LimitReason, Is.EqualTo("MaxTotalVariationAxes"));
             Assert.That(sections[3].Diagnostics.Single().Code, Is.EqualTo(FontDiagnosticCodes.LimitExceeded));
         }
         [Test]

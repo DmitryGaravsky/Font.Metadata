@@ -24,6 +24,8 @@ namespace Fonts.Metadata.Tool {
             writer.WriteNumber("maxInputBytes", Options.MaxInputBytes);
             if(Options.IncludeUnicodeCoverage)
                 writer.WriteBoolean("includeUnicodeCoverage", true);
+            if(Options.IncludeTableInventory)
+                writer.WriteBoolean("includeTableInventory", true);
             if(Options.IncludeVariationAxes)
                 writer.WriteBoolean("includeVariationAxes", true);
             if(Options.AnalyzeSpdx)
@@ -89,6 +91,7 @@ namespace Fonts.Metadata.Tool {
                 Number("sfntFlavor", face.SfntFlavor);
                 writer.WriteString("nameTableStatus", ReportValues.Section(face.NameTableStatus));
                 writer.WriteString("os2TableStatus", ReportValues.Section(face.Os2TableStatus));
+                WriteHeaderTables(face);
                 writer.WriteString("vendorId", face.VendorId);
                 Number("embeddingPermissions", face.EmbeddingPermissions);
                 foreach(var field in ReportValues.Preferred(face)) {
@@ -145,15 +148,52 @@ namespace Fonts.Metadata.Tool {
             writer.WriteEndObject();
             Checkpoint();
         }
+        void WriteHeaderTables(FontMetadata.Face face) {
+            writer.WriteString("headTableStatus", ReportValues.Section(face.HeadTableStatus));
+            writer.WriteString("maxpTableStatus", ReportValues.Section(face.MaxpTableStatus));
+            Number("glyphCount", face.GlyphCount);
+            if(face.Head is { } head) {
+                writer.WriteStartObject("head");
+                writer.WriteNumber("fontRevision", head.FontRevision);
+                writer.WriteNumber("created", head.Created);
+                writer.WriteNumber("modified", head.Modified);
+                writer.WriteNumber("unitsPerEm", head.UnitsPerEm);
+                writer.WriteNumber("flags", head.Flags);
+                writer.WriteNumber("macStyle", head.MacStyle);
+                writer.WriteEndObject();
+            }
+            else
+                writer.WriteNull("head");
+            if(face.TableInventory is { } inventory) {
+                writer.WriteStartObject("tableInventory");
+                writer.WriteString("status", ReportValues.Section(inventory.Status));
+                writer.WriteStartArray("entries");
+                foreach(var entry in inventory.Entries) {
+                    Checkpoint();
+                    writer.WriteStartObject();
+                    writer.WriteString("tag", entry.Tag);
+                    writer.WriteNumber("length", entry.Length);
+                    writer.WriteNumber("storedLength", entry.StoredLength);
+                    writer.WriteBoolean("isCompressed", entry.IsCompressed);
+                    writer.WriteBoolean("isTransformed", entry.IsTransformed);
+                    Number("transformVersion", entry.TransformVersion);
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+        }
         void WriteDiagnostic(FontDiagnostic diagnostic) {
             WriteDiagnostic(diagnostic.Code, ReportValues.Severity(diagnostic.Severity), ReportValues.Category(diagnostic.Category),
-                diagnostic.Message, diagnostic.FaceIndex, diagnostic.TableTag, diagnostic.ByteOffset, diagnostic.TableByteOffset);
+                diagnostic.Message, diagnostic.FaceIndex, diagnostic.TableTag, diagnostic.ByteOffset, diagnostic.TableByteOffset, diagnostic.LimitReason);
         }
         void WriteDiagnostic(string code, string severity, string category, string message,
-            int? face, string? table, long? offset, long? tableOffset) {
+            int? face, string? table, long? offset, long? tableOffset, string? limitReason = null) {
             Checkpoint();
             writer.WriteStartObject();
             writer.WriteString("code", code);
+            if(limitReason != null)
+                writer.WriteString("limitReason", limitReason);
             writer.WriteString("severity", severity);
             writer.WriteString("category", category);
             writer.WriteString("message", message);

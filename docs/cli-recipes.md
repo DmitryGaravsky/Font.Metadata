@@ -57,16 +57,16 @@ For a private or local package feed, add `--add-source <feed>` to install/restor
 
 ### Build and install from source
 
-From the Font.Metadata repository root, with a fresh tool directory:
+From the Font.Metadata repository root, with fresh package and tool directories:
 
 ```shell
-pwsh -File eng/verify.ps1
-dotnet tool install --tool-path artifacts/local-tool --add-source <verified-package-directory> Font.Metadata.Tool --version 0.1.0-dev
+pwsh -File eng/verify.ps1 -Version 1.1.0 -PackageDirectory artifacts/local-packages
+dotnet tool install --tool-path artifacts/local-tool --source artifacts/local-packages Font.Metadata.Tool --version 1.1.0
 ./artifacts/local-tool/font-metadata --help
 ./artifacts/local-tool/font-metadata inspect Example.woff2 --format json
 ```
 
-`0.1.0-dev` is the current default in `Directory.Build.props`. If you override `Version` when packing, use the same version when installing. Use a new version for changed builds you distribute; reinstalling a development version can reuse a cached package. `--add-source` adds a feed without giving it precedence over other feeds.
+`1.1.0` is the current default in `Directory.Build.props`. If you override `Version` when packing, use the same version when installing. Use a new version for changed builds you distribute; reinstalling a development version can reuse a cached package. `--add-source` adds a feed without giving it precedence over other feeds.
 
 To use a downloaded `.nupkg`, put it in a directory and pass that directory to `--add-source`. No public package is required. For an installed local tool, use `dotnet tool run font-metadata --` in place of `font-metadata` in the recipes below; for a custom tool directory, use its executable path.
 

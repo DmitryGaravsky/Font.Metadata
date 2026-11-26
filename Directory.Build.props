@@ -5,7 +5,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <IsPackable>false</IsPackable>
-    <Version>0.1.0-dev</Version>
+    <Version>1.1.0</Version>
     <Authors>Dmitry Garavsky</Authors>
     <Copyright>Copyright (c) 2026 Dmitry Garavsky</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -18,7 +18,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Font.Metadata' Or '$(MSBuildProjectName)' == 'Font.Metadata.Spdx'">
     <EnablePackageValidation>true</EnablePackageValidation>
-    <PackageValidationBaselineVersion>0.1.0-preview.1</PackageValidationBaselineVersion>
+    <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion>
     <ApiCompatEnableRuleCannotChangeParameterName>true</ApiCompatEnableRuleCannotChangeParameterName>
   </PropertyGroup>
 </Project>

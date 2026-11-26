@@ -70,7 +70,7 @@ namespace Fonts.Metadata.Internal {
             bool limited = index < availableCount;
             if(limited) {
                 AddDiagnostic(diagnostics, origin, FontDiagnosticCodes.LimitExceeded, AxisLimit,
-                    arrayOffset + index * AxisSize, FontDiagnosticSeverity.Error, FontDiagnosticCategory.LimitExceeded);
+                    arrayOffset + index * AxisSize, FontDiagnosticSeverity.Error, FontDiagnosticCategory.LimitExceeded, nameof(FontReadLimits.MaxTotalVariationAxes));
             }
             var status = GetStatus(malformed, limited, axes.Count);
             var snapshot = ResultList<FontVariationAxis>.Snapshot(axes);
@@ -134,9 +134,9 @@ namespace Fonts.Metadata.Internal {
                 offset, FontDiagnosticSeverity.Warning, FontDiagnosticCategory.NonConformantData);
         }
         static void AddDiagnostic(DiagnosticBag diagnostics, SourceLocation origin, string code, string message, int offset,
-            FontDiagnosticSeverity severity, FontDiagnosticCategory category) {
+            FontDiagnosticSeverity severity, FontDiagnosticCategory category, string? limitReason = null) {
             var diagnostic = new FontDiagnostic(code, severity, category, message,
-                tableTag: TableTag, byteOffset: origin.Map(offset), tableByteOffset: offset);
+                tableTag: TableTag, byteOffset: origin.Map(offset), tableByteOffset: offset, limitReason: limitReason);
             diagnostics.Add(diagnostic);
         }
     }

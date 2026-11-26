@@ -63,6 +63,7 @@ namespace Fonts.Metadata.Tests {
             Assert.That(result.Status, Is.EqualTo(FontReadStatus.Partial));
             Assert.That(result.Metadata!.Faces.Count, Is.EqualTo(1));
             Assert.That(result.Diagnostics.Single().Category, Is.EqualTo(FontDiagnosticCategory.LimitExceeded));
+            Assert.That(result.Diagnostics.Single().LimitReason, Is.EqualTo("MaxFaces"));
         }
         [Test]
         public void InvalidCollectionCountDoesNotAllocatePlaceholders() {
@@ -77,7 +78,9 @@ namespace Fonts.Metadata.Tests {
             var result = FontMetadataReader.Inspect(Example(), Options(new FontReadLimits { MaxInputBytes = 4 }));
             Assert.That(result.Status, Is.EqualTo(FontReadStatus.Failed));
             Assert.That(result.Metadata!.Faces, Is.Empty);
+            Assert.That(result.Diagnostics.Single().LimitReason, Is.EqualTo("MaxInputBytes"));
             result = FontMetadataReader.Inspect(Example(), Options(new FontReadLimits { MaxTablesPerFace = 1 }));
+            Assert.That(result.Diagnostics.Single().LimitReason, Is.EqualTo("MaxTablesPerFace"));
             Assert.That(result.Status, Is.EqualTo(FontReadStatus.Failed));
             Assert.That(result.Metadata!.Faces[0].NameTableStatus, Is.EqualTo(FontSectionStatus.NotRead));
             Assert.That(result.Diagnostics[0].Category, Is.EqualTo(FontDiagnosticCategory.LimitExceeded));
@@ -93,12 +96,16 @@ namespace Fonts.Metadata.Tests {
         [Test]
         public void RecordAndStringLimitsPreserveEarlierRecords() {
             byte[] font = Sfnt(("name", Names(Name.Text(FamilyNameId, "A"), Name.Text(LicenseDescriptionNameId, "B"))));
-            foreach(var limits in new[] { new FontReadLimits { MaxNameRecords = 1 }, new FontReadLimits { MaxNameStringBytes = 2 }, new FontReadLimits { MaxTotalNameStringBytes = 2 } }) {
+            foreach(var (limits, reason) in new[] {
+                (new FontReadLimits { MaxNameRecords = 1 }, "MaxNameRecords"),
+                (new FontReadLimits { MaxNameStringBytes = 2 }, "MaxNameStringBytes"),
+                (new FontReadLimits { MaxTotalNameStringBytes = 2 }, "MaxTotalNameStringBytes")
+            }) {
                 var result = FontMetadataReader.Inspect(font, Options(limits));
                 Assert.That(result.Status, Is.EqualTo(FontReadStatus.Partial));
                 Assert.That(result.Metadata!.Faces[0].NameTableStatus, Is.EqualTo(FontSectionStatus.Partial));
                 Assert.That(result.Metadata.Faces[0].FamilyName, Is.EqualTo("A"));
-                Assert.That(result.Diagnostics.Any(x => x.Category == FontDiagnosticCategory.LimitExceeded), Is.True);
+                Assert.That(result.Diagnostics.Single(d => d.Code == FontDiagnosticCodes.LimitExceeded).LimitReason, Is.EqualTo(reason));
             }
         }
         [Test]

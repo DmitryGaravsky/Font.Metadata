@@ -3,6 +3,8 @@ using System;
 namespace Fonts.Metadata {
     /// <summary>Immutable reader settings. Each operation has independent mutable processing state.</summary>
     public sealed class FontReadOptions {
+        /// <summary>Include validated table directory declarations in source order for each face.</summary>
+        public bool IncludeTableInventory { get; init; }
         /// <summary>Resource limits, shared safely because their properties are init-only.</summary>
         public FontReadLimits Limits { get; init; } = new FontReadLimits();
         /// <summary>Read Unicode scalar ranges from a supported cmap subtable for each face.</summary>

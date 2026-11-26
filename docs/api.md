@@ -18,6 +18,11 @@ FontInspectionResult
 │   │   ├── Source                  FontFaceSource (Container / EotMain / EotEudc)
 │   │   ├── NameTableStatus         FontSectionStatus
 │   │   ├── Os2TableStatus          FontSectionStatus
+│   │   ├── HeadTableStatus         FontSectionStatus
+│   │   ├── Head?                   FontHeader
+│   │   ├── MaxpTableStatus         FontSectionStatus
+│   │   ├── GlyphCount?             ushort
+│   │   ├── TableInventory?         FontTableInventory (Status and Entries)
 │   │   ├── UnicodeCoverage?        FontUnicodeCoverage
 │   │   ├── VariationAxes?          FontVariationAxes
 │   │   └── NameRecords             IReadOnlyList<FontMetadata.NameRecord>
@@ -26,7 +31,7 @@ FontInspectionResult
 └── Diagnostics                    IReadOnlyList<FontDiagnostic>
 
 FontReadOptions
-├── IncludeUnicodeCoverage / IncludeVariationAxes
+├── IncludeUnicodeCoverage / IncludeVariationAxes / IncludeTableInventory
 └── Limits                         FontReadLimits
 
 FontLicenseAnalyzer.Analyze(Face)
@@ -41,7 +46,7 @@ Metadata and diagnostics are immutable. Scalar ranges are readonly value types. 
 
 ## Compatibility and evolution
 
-The 1.x compatibility policy takes effect with 1.0.0. During preparation, the published `0.1.0-preview.1` packages are the comparison baseline for both libraries. Pin a preview version when evaluating an integration.
+The 1.x compatibility policy takes effect with 1.0.0. Package validation for 1.1.0 compares both public libraries against their 1.0.0 packages.
 
 | Surface | Commitment for 1.x |
 | --- | --- |
@@ -188,7 +193,7 @@ A WOFF2 face limit still requires bounded traversal of the remaining descriptors
 
 ## Face and record properties
 
-`FontMetadata.Face` exposes `Index`, `Source`, nullable raw `SfntFlavor`, both table states, source `NameRecords`, `VendorId`, and nullable raw `ushort EmbeddingPermissions`. Zero flags are distinct from missing flags.
+`FontMetadata.Face` exposes `Index`, `Source`, nullable raw `SfntFlavor`, `NameTableStatus`, `Os2TableStatus`, `HeadTableStatus`, `MaxpTableStatus`, source `NameRecords`, `VendorId`, and nullable raw `ushort EmbeddingPermissions`. Zero flags are distinct from missing flags. Use `Head` for raw header fields, `GlyphCount` for the declared count and `TableInventory` for the optional directory. See [Headers and table inventory](#headers-and-table-inventory).
 
 Preferred string properties are `FamilyName`, `SubfamilyName`, `FullName`, `PostScriptName`, `Version`, `Copyright`, `Trademark`, `Manufacturer`, `Designer`, `Description`, `VendorUrl`, `DesignerUrl`, `LicenseDescription` and `LicenseUrl`.
 
@@ -339,3 +344,20 @@ All rules require `match` and `text`. Headings support the first two rows and ca
 | Native SPDX limits | Pinned parser and validator defaults | A parser limit is retained at its declaration and analysis continues. Validation diagnostic truncation is reported by the native result, whose occurrences are preserved. |
 
 `IsAnalysisComplete` is false on a document or parser limit. Syntax errors, unknown identifiers and unresolved references remain evidence in an otherwise complete analysis. Native diagnostic truncation is separately visible on the declaration. See the [CLI document command](cli.md#external-license-documents) for the byte-read, digest and UTF-8 contract.
+
+## Headers and table inventory
+
+```csharp
+var inspection = FontMetadataReader.InspectFile(path, new FontReadOptions { IncludeTableInventory = true });
+foreach (var face in inspection.Faces) {
+    if (face.Head is { } header)
+        Console.WriteLine($"{header.FontRevision / 65536m} ({header.UnitsPerEm} units per em)");
+    Console.WriteLine($"{face.MaxpTableStatus} {face.GlyphCount}");
+    foreach (var table in face.TableInventory!.Entries)
+        Console.WriteLine($"{table.Tag} {table.Length} {table.StoredLength}");
+}
+```
+
+`HeadTableStatus` and `MaxpTableStatus` describe independent reads. `Head` is null when no fields are available. `Head.FontRevision` preserves signed 16.16 bits (`0xffffffff` gives -1). `Created` and `Modified` are signed 64-bit seconds since 1904-01-01 UTC, including values outside the .NET date range. `UnitsPerEm`, `Flags`, `MacStyle` and `GlyphCount` preserve unsigned values including zero. Font version selection and rounding belong to the caller.
+
+`TableInventory` is null by default. When enabled, its status and immutable entries describe the directory of each face in source order. Tags preserve all four bytes. Lengths are bytes. SFNT and TTC use the declared table length for both fields. WOFF reports original and individually stored lengths with `IsCompressed`. WOFF2 reports original length and the table's contribution before shared Brotli compression, including zero for a transformed loca. `TransformVersion` preserves the two flag bits and `IsTransformed` accounts for the null transform for the specific tag. EOT lengths describe the contained SFNT or decoded CTF. A directory entry records a declaration. Signature verification, hint validation and outline reconstruction are separate operations.

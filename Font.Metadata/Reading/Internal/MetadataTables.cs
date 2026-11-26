@@ -166,12 +166,12 @@ namespace Fonts.Metadata.Internal {
                 strings = new();
                 records = new();
             }
-            void Error(string code, string message, int offset, FontDiagnosticCategory category = FontDiagnosticCategory.MalformedData) {
+            void Error(string code, string message, int offset, FontDiagnosticCategory category = FontDiagnosticCategory.MalformedData, string? limitReason = null) {
                 malformed |= category == FontDiagnosticCategory.MalformedData;
                 unsupported |= category is FontDiagnosticCategory.UnsupportedFeature or FontDiagnosticCategory.UnsupportedEncoding;
                 limited |= category == FontDiagnosticCategory.LimitExceeded;
                 var diagnostic = new FontDiagnostic(code, FontDiagnosticSeverity.Error, category, message,
-                    tableTag: NameTableTag, byteOffset: origin.Map(offset), tableByteOffset: offset);
+                    tableTag: NameTableTag, byteOffset: origin.Map(offset), tableByteOffset: offset, limitReason: limitReason);
                 diagnostics.Add(diagnostic);
             }
             TableMetadata Result() {
@@ -241,7 +241,7 @@ namespace Fonts.Metadata.Internal {
                     records.Add(new FontMetadata.NameRecord(i, nameId, platform, encodingId, language, languageTag, value));
                 }
                 if(allowed < count)
-                    Error(FontDiagnosticCodes.LimitExceeded, Messages.NameRecordLimit, HeaderSize + allowed * RecordSize, FontDiagnosticCategory.LimitExceeded);
+                    Error(FontDiagnosticCodes.LimitExceeded, Messages.NameRecordLimit, HeaderSize + allowed * RecordSize, FontDiagnosticCategory.LimitExceeded, nameof(FontReadLimits.MaxNameRecords));
                 return Result();
             }
             bool TryReadLanguageDirectory(int format, int count, int recordsEnd, int storage, out int languageCount) {
@@ -299,7 +299,7 @@ namespace Fonts.Metadata.Internal {
                 if(strings.TryGetValue(key, out string? previous))
                     return previous;
                 if(!FitsStringBudgets(length)) {
-                    Error(FontDiagnosticCodes.LimitExceeded, Messages.NameStringBudget, recordOffset, FontDiagnosticCategory.LimitExceeded);
+                    Error(FontDiagnosticCodes.LimitExceeded, Messages.NameStringBudget, recordOffset, FontDiagnosticCategory.LimitExceeded, length > context.Limits.MaxNameStringBytes - decodedBytes ? nameof(FontReadLimits.MaxNameStringBytes) : nameof(FontReadLimits.MaxTotalNameStringBytes));
                     return null;
                 }
                 decodedBytes += length;

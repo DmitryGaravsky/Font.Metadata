@@ -10,7 +10,7 @@ namespace Fonts.Metadata.Tool {
     internal static class Command {
         internal const string Usage = "Usage: font-metadata inspect <path> [<path> ...] [options]\n       font-metadata inspect - [options]\n       font-metadata inspect-license <path> [<path> ...] [--format plain|json]\n       font-metadata --help | --version";
         const string Help = "Font.Metadata.Tool\n" + Usage +
-            "\nInspect options: --format plain|json (default: plain), --include-name-records, --include-unicode-coverage, --include-variation-axes, --analyze-licenses, --analyze-spdx, --max-input-bytes <bytes>\n" +
+            "\nInspect options: --format plain|json (default: plain), --include-name-records, --include-unicode-coverage, --include-variation-axes, --include-table-inventory, --analyze-licenses, --analyze-spdx, --max-input-bytes <bytes>\n" +
             "Use -- before literal paths beginning with '-'. Stdin '-' must be the only source.\n" +
             "Reads SFNT/TTC, WOFF, WOFF2 and EOT. No embedded search or directory traversal.\n" +
             "Design axes are shown for declared fvar tables. Use --include-variation-axes to report the status for every face.\n" +
@@ -76,6 +76,7 @@ namespace Fonts.Metadata.Tool {
             var readOptions = new FontReadOptions {
                 Limits = limits,
                 IncludeUnicodeCoverage = options.IncludeUnicodeCoverage,
+                IncludeTableInventory = options.IncludeTableInventory,
                 IncludeVariationAxes = true
             };
             using(ReportWriter writer = options.Json ?

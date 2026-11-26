@@ -26,7 +26,14 @@ namespace Fonts.Metadata {
                 FontSectionStatus os2Status = FontSectionStatus.NotRead, IReadOnlyList<NameRecord>? records = null,
                 string? vendorId = null, ushort? permissions = null, IReadOnlyDictionary<int, string>? preferred = null,
                 FontFaceSource source = FontFaceSource.Container, FontUnicodeCoverage? coverage = null,
-                FontVariationAxes? axes = null) {
+                FontVariationAxes? axes = null, FontHeader? head = null, ushort? glyphCount = null,
+                FontSectionStatus headStatus = FontSectionStatus.NotRead, FontSectionStatus maxpStatus = FontSectionStatus.NotRead,
+                FontTableInventory? inventory = null) {
+                Head = head;
+                GlyphCount = glyphCount;
+                HeadTableStatus = headStatus;
+                MaxpTableStatus = maxpStatus;
+                TableInventory = inventory;
                 UnicodeCoverage = coverage;
                 VariationAxes = axes;
                 Index = index;
@@ -59,6 +66,16 @@ namespace Fonts.Metadata {
             public FontFaceSource Source { get; }
             /// <summary>Original SFNT flavor, when the header was readable.</summary>
             public uint? SfntFlavor { get; }
+            /// <summary>Verified OpenType head fields, or null when unavailable.</summary>
+            public FontHeader? Head { get; }
+            /// <summary>Completeness of the head table.</summary>
+            public FontSectionStatus HeadTableStatus { get; }
+            /// <summary>Number of glyphs declared in maxp, including zero.</summary>
+            public ushort? GlyphCount { get; }
+            /// <summary>Completeness of the maxp table.</summary>
+            public FontSectionStatus MaxpTableStatus { get; }
+            /// <summary>Ordered table declarations, or null when not requested.</summary>
+            public FontTableInventory? TableInventory { get; }
             /// <summary>Completeness of the name table.</summary>
             public FontSectionStatus NameTableStatus { get; }
             /// <summary>Completeness of supported OS/2 metadata fields.</summary>

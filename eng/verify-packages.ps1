@@ -176,10 +176,27 @@ byte[] catalog = Convert.FromHexString(
     "000100000002002000010000636D6170000000000000002C0000002866766172000000000000005400000024" +
     "000000010003000A0000000C000C00000000001C00000000000000010001F6000001F60100000001" +
     "000100000010000200010014000000087767687400008000000100000001800000010100");
-var catalogFace = FontMetadataReader.Read(catalog, new FontReadOptions { IncludeUnicodeCoverage = true, IncludeVariationAxes = true }).Faces[0];
+var catalogFace = FontMetadataReader.Read(catalog, new FontReadOptions {
+    IncludeUnicodeCoverage = true, IncludeVariationAxes = true, IncludeTableInventory = true
+}).Faces[0];
+if(catalogFace.TableInventory is not { Status: FontSectionStatus.Complete } ||
+    catalogFace.HeadTableStatus != FontSectionStatus.Missing || catalogFace.GlyphCount.HasValue ||
+    catalogFace.TableInventory.Entries.Count == 0)
+    throw new Exception(CatalogReadFailureMessage);
 if(catalogFace.UnicodeCoverage is not { Status: FontSectionStatus.Complete, Format: 12, Ranges: [{ Start: 0x1F600, End: 0x1F601 }] } ||
     catalogFace.VariationAxes is not { Status: FontSectionStatus.Complete, Axes: [{ Tag: "wght", Minimum: 0.5m, Default: 1m, Maximum: 1.5m, NameId: 256 }] })
     throw new Exception(CatalogReadFailureMessage);
+// Two independent directory entries: a 54-byte head and a version 0.5 maxp.
+byte[] headers = Convert.FromHexString(
+    "00010000000200200001000068656164000000000000002C000000366D617870000000000000006400000006" +
+    "00010000000300C5000000005F0F3CF5000F080000000000D9CCC2F700000000E17BDBA40000000000000000000000000000000000000000" +
+    "00005000047E");
+var headerFace = FontMetadataReader.Read(headers, new FontReadOptions { IncludeTableInventory = true }).Faces[0];
+if(headerFace.HeadTableStatus != FontSectionStatus.Complete || headerFace.MaxpTableStatus != FontSectionStatus.Complete ||
+    headerFace.Head is not { FontRevision: 196805, UnitsPerEm: 2048 } || headerFace.GlyphCount != 1150 ||
+    headerFace.TableInventory is not { Status: FontSectionStatus.Complete, Entries: [
+        { Tag: "head", Length: 54, StoredLength: 54 }, { Tag: "maxp", Length: 6, StoredLength: 6 }] })
+    throw new Exception("Packaged head, maxp or table inventory differs from the fixture.");
 byte[] damaged = Convert.FromHexString("0001000000010010000000006E616D65000000000000001C0000002200000002001E000300010409000100020000000300010409000D000200020041D800");
 FontInspectionResult result = FontMetadataReader.Inspect(damaged);
 if(result.Status != FontReadStatus.Partial || result.Faces[0].FamilyName != "A" ||

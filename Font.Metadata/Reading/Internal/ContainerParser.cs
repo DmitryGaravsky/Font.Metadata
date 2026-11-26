@@ -6,6 +6,7 @@ namespace Fonts.Metadata.Internal {
         internal static FontInspectionResult Parse(ReadOnlySpan<byte> data, FontReadOptions options, CancellationToken token) {
             var context = new ReadingContext(options.Limits, token) {
                 IncludeUnicodeCoverage = options.IncludeUnicodeCoverage,
+                IncludeTableInventory = options.IncludeTableInventory,
                 IncludeVariationAxes = options.IncludeVariationAxes
             };
             token.ThrowIfCancellationRequested();

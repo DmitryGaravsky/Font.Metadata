@@ -43,7 +43,7 @@ namespace Fonts.Metadata.Internal {
             }
             if(count > context.Limits.MaxWoff2Tables) {
                 context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, CountOffset,
-                    category: FontDiagnosticCategory.LimitExceeded);
+                    category: FontDiagnosticCategory.LimitExceeded, limitReason: nameof(FontReadLimits.MaxWoff2Tables));
                 return;
             }
             var cursor = new Cursor(data, HeaderSize, context);
@@ -75,7 +75,7 @@ namespace Fonts.Metadata.Internal {
                     if(entries.Count > context.Limits.MaxTablesPerFace) {
                         face.Failure = FontSectionStatus.NotRead;
                         context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, CountOffset, 0,
-                            category: FontDiagnosticCategory.LimitExceeded);
+                            category: FontDiagnosticCategory.LimitExceeded, limitReason: nameof(FontReadLimits.MaxTablesPerFace));
                     }
                     else {
                         for(int i = 0; i < entries.Count; i++)
@@ -90,9 +90,9 @@ namespace Fonts.Metadata.Internal {
                 BuildFaces(entries, faces, default, false, FontSectionStatus.NotRead, context);
                 return;
             }
-            catch(DecodeLimitException) {
+            catch(DecodeLimitException ex) {
                 context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, cursor.Position,
-                    category: FontDiagnosticCategory.LimitExceeded);
+                    category: FontDiagnosticCategory.LimitExceeded, limitReason: ex.Reason);
                 BuildFaces(entries, faces, default, false, FontSectionStatus.NotRead, context);
                 return;
             }
@@ -110,7 +110,7 @@ namespace Fonts.Metadata.Internal {
                 throw new InvalidDataException(ContainerMessages.Header);
             if(count > context.Limits.MaxFaces)
                 context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, cursor.Position,
-                    category: FontDiagnosticCategory.LimitExceeded);
+                    category: FontDiagnosticCategory.LimitExceeded, limitReason: nameof(FontReadLimits.MaxFaces));
             long references = 0;
             var used = new bool[entries.Count];
             for(int index = 0; index < count; index++) {
@@ -132,12 +132,12 @@ namespace Fonts.Metadata.Internal {
                     else if(tableCount > context.Limits.MaxTablesPerFace) {
                         face.Failure = FontSectionStatus.NotRead;
                         context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, cursor.Position, index,
-                            category: FontDiagnosticCategory.LimitExceeded);
+                            category: FontDiagnosticCategory.LimitExceeded, limitReason: nameof(FontReadLimits.MaxTablesPerFace));
                     }
                 }
                 for(int i = 0; i < tableCount; i++) {
                     if(++references > context.Limits.MaxWoff2TableReferences)
-                        throw new DecodeLimitException();
+                        throw new DecodeLimitException(nameof(FontReadLimits.MaxWoff2TableReferences));
                     int position = cursor.Position;
                     int reference = cursor.UInt255();
                     if(reference < entries.Count)
