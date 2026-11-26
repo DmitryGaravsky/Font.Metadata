@@ -77,6 +77,10 @@ namespace Fonts.Metadata.Internal {
                 bag.TrimSection(keep, keep > 0 && remaining == 0);
             }
         }
+        internal bool IncludeTableInventory { get; init; }
+        internal FontTableInventory? EmptyInventory(FontSectionStatus status = FontSectionStatus.NotRead) {
+            return IncludeTableInventory ? new FontTableInventory(status) : null;
+        }
         internal bool IncludeUnicodeCoverage { get; init; }
         internal bool IncludeVariationAxes { get; init; }
         internal bool WantsOptionalTable(uint tag) {
@@ -103,7 +107,7 @@ namespace Fonts.Metadata.Internal {
         internal void ReserveRetained(int length) {
             CheckCancellation();
             if(length < 0 || length > Array.MaxLength || length > Limits.MaxRetainedDecodedBytes - RetainedBytes)
-                throw new DecodeLimitException();
+                throw new DecodeLimitException(nameof(FontReadLimits.MaxRetainedDecodedBytes));
             RetainedBytes += length;
         }
         internal void ReleaseRetained(int length) {
@@ -118,8 +122,8 @@ namespace Fonts.Metadata.Internal {
             return Diagnostics.HasDataFailure || Diagnostics.Truncated ? FontReadStatus.Failed : FontReadStatus.Unsupported;
         }
         internal void Error(string code, string message, long? offset = null, int? face = null, string? tag = null,
-            FontDiagnosticCategory category = FontDiagnosticCategory.MalformedData) {
-            var diagnostic = new FontDiagnostic(code, FontDiagnosticSeverity.Error, category, message, face, tag, offset);
+            FontDiagnosticCategory category = FontDiagnosticCategory.MalformedData, string? limitReason = null) {
+            var diagnostic = new FontDiagnostic(code, FontDiagnosticSeverity.Error, category, message, face, tag, offset, limitReason: limitReason);
             Diagnostics.Add(diagnostic);
         }
         internal void Warning(string message, long? offset = null) {
@@ -141,6 +145,8 @@ namespace Fonts.Metadata.Internal {
                 var axes = FvarParser.Read(data, location, this);
                 result = new TableMetadata { Status = axes.Status, Axes = axes };
             }
+            else if(tag == ContainerLayout.HeadTag || tag == ContainerLayout.MaxpTag)
+                result = HeaderTables.Read(tag, data, location);
             else if(tag == ContainerLayout.NameTag)
                 result = MetadataTables.ReadNames(data, location, this);
             else
@@ -152,16 +158,33 @@ namespace Fonts.Metadata.Internal {
         }
         internal FontMetadata.Face CreateFace(int index, uint? flavor, TableMetadata names, TableMetadata os2,
             bool directoryValid = true, FontFaceSource source = FontFaceSource.Container,
-            TableMetadata? cmap = null, TableMetadata? fvar = null) {
+            TableMetadata? cmap = null, TableMetadata? fvar = null, TableMetadata? head = null,
+            TableMetadata? maxp = null, FontTableInventory? inventory = null) {
             foreach(var diagnostic in names.Diagnostics)
                 Diagnostics.Add(diagnostic.ForFace(index));
             foreach(var diagnostic in os2.Diagnostics)
                 Diagnostics.Add(diagnostic.ForFace(index));
             IncompleteSections |= !IsComplete(names.Status) || !IsComplete(os2.Status);
+            // Preserve the 1.0 classification of failures in name, OS/2 and the directory.
+            // When both older tables are absent, the new sections distinguish an empty face
+            // from a face whose only declared metadata failed.
+            bool legacyTablesMissing = names.Status == FontSectionStatus.Missing && os2.Status == FontSectionStatus.Missing;
+            bool headersMissing = head?.Status == FontSectionStatus.Missing && maxp?.Status == FontSectionStatus.Missing;
+            bool headerReadable = IsUsable(head?.Status ?? FontSectionStatus.NotRead) || IsUsable(maxp?.Status ?? FontSectionStatus.NotRead);
             HasUsableMetadata |= IsUsable(names.Status) || IsUsable(os2.Status) ||
-                (directoryValid && names.Status == FontSectionStatus.Missing && os2.Status == FontSectionStatus.Missing);
+                (directoryValid && legacyTablesMissing && (headersMissing || headerReadable));
+            AddHeaderStatus(head, index);
+            AddHeaderStatus(maxp, index);
             return new FontMetadata.Face(index, flavor, names.Status, os2.Status, names.Records,
-                os2.VendorId, os2.Permissions, names.PreferredNames, source, GetCoverage(cmap), GetAxes(fvar));
+                os2.VendorId, os2.Permissions, names.PreferredNames, source, GetCoverage(cmap), GetAxes(fvar),
+                head?.Head, maxp?.GlyphCount, head?.Status ?? names.Status, maxp?.Status ?? os2.Status, inventory ?? EmptyInventory(names.Status));
+        }
+        void AddHeaderStatus(TableMetadata? table, int index) {
+            if(table == null)
+                return;
+            foreach(var diagnostic in table.Diagnostics)
+                Diagnostics.Add(diagnostic.ForFace(index));
+            IncompleteSections |= !IsComplete(table.Status);
         }
         internal TableMetadata SharedTableFailure(SourceLocation source, long offset, long length, uint tag,
             int faceIndex, FontSectionStatus status, FontDiagnostic diagnostic) {
@@ -220,6 +243,8 @@ namespace Fonts.Metadata.Internal {
                 Status = FontSectionStatus.Partial,
                 Coverage = Coverage?.WithStatus(FontSectionStatus.Partial),
                 Axes = Axes?.WithStatus(FontSectionStatus.Partial),
+                Head = Head,
+                GlyphCount = GlyphCount,
                 Records = Records,
                 PreferredNames = PreferredNames,
                 VendorId = VendorId,
@@ -232,6 +257,8 @@ namespace Fonts.Metadata.Internal {
         internal FontSectionStatus Status { get; init; }
         internal IReadOnlyList<FontMetadata.NameRecord> Records { get; init; } = ReadOnlyCollection<FontMetadata.NameRecord>.Empty;
         internal IReadOnlyDictionary<int, string> PreferredNames { get; init; } = ReadOnlyDictionary<int, string>.Empty;
+        internal FontHeader? Head { get; init; }
+        internal ushort? GlyphCount { get; init; }
         internal string? VendorId { get; init; }
         internal ushort? Permissions { get; init; }
         internal IReadOnlyList<FontDiagnostic> Diagnostics { get; init; } = ReadOnlyCollection<FontDiagnostic>.Empty;

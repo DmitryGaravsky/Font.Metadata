@@ -1,6 +1,12 @@
 namespace Fonts.Metadata {
     /// <summary>Stable diagnostic identifiers. Message text is not a machine-readable contract.</summary>
     public static partial class FontDiagnosticCodes {
+        /// <summary>Malformed head structure or signature.</summary>
+        public const string InvalidHeadTable = "FM_INVALID_HEAD_TABLE";
+        /// <summary>Readable but nonconforming head field.</summary>
+        public const string NonConformantHead = "FM_NONCONFORMANT_HEAD";
+        /// <summary>Malformed maxp structure.</summary>
+        public const string InvalidMaxpTable = "FM_INVALID_MAXP_TABLE";
         /// <summary>A container header or block layout is invalid.</summary>
         public const string InvalidContainer = "FM_INVALID_CONTAINER";
         /// <summary>A compressed stream is invalid, truncated or has excess input/output.</summary>

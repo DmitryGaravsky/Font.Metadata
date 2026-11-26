@@ -244,7 +244,7 @@ namespace Fonts.Metadata.Internal {
                     return true;
                 }
                 if(!context.TryRetainUnicodeRange()) {
-                    Error(FontDiagnosticCodes.LimitExceeded, RangeLimit, offset, FontDiagnosticCategory.LimitExceeded);
+                    Error(FontDiagnosticCodes.LimitExceeded, RangeLimit, offset, FontDiagnosticCategory.LimitExceeded, nameof(FontReadLimits.MaxTotalUnicodeRanges));
                     return false;
                 }
                 ranges.Add(new FontUnicodeRange(start, end));
@@ -253,17 +253,17 @@ namespace Fonts.Metadata.Internal {
             bool ConsumeWork(int offset) {
                 if(context.TryConsumeCmapWork())
                     return true;
-                Error(FontDiagnosticCodes.LimitExceeded, WorkLimit, offset, FontDiagnosticCategory.LimitExceeded);
+                Error(FontDiagnosticCodes.LimitExceeded, WorkLimit, offset, FontDiagnosticCategory.LimitExceeded, nameof(FontReadLimits.MaxTotalCmapWork));
                 return false;
             }
             void Invalid(string message, int offset) {
                 Error(FontDiagnosticCodes.InvalidCmapTable, message, offset, FontDiagnosticCategory.MalformedData);
             }
-            void Error(string code, string message, int offset, FontDiagnosticCategory category) {
+            void Error(string code, string message, int offset, FontDiagnosticCategory category, string? limitReason = null) {
                 malformed |= category == FontDiagnosticCategory.MalformedData;
                 limited |= category == FontDiagnosticCategory.LimitExceeded;
                 var diagnostic = new FontDiagnostic(code, FontDiagnosticSeverity.Error, category, message,
-                    tableTag: TableTag, byteOffset: origin.Map(offset), tableByteOffset: offset);
+                    tableTag: TableTag, byteOffset: origin.Map(offset), tableByteOffset: offset, limitReason: limitReason);
                 diagnostics.Add(diagnostic);
             }
             FontUnicodeCoverage Result() {

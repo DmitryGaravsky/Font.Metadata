@@ -32,6 +32,40 @@ namespace Fonts.Metadata.Tool.Tests {
         static JsonElement Face(ProcessResult result, int index = 0) {
             return First(result).GetProperty("metadata").GetProperty("faces")[index];
         }
+        [Test]
+        public async Task InventoryIsOptInAndPreservesTagAndZeroGlyphCount() {
+            string path = Save(Sfnt(("cvt ", new byte[2]), ("maxp", new byte[] { 0, 0, 0x50, 0, 0, 0 })));
+            var ordinary = Face(await ToolProcess.Run(["inspect", path, "--format", "json"]));
+            Assert.That(ordinary.TryGetProperty("tableInventory", out _), Is.False);
+            Assert.That(ordinary.GetProperty("glyphCount").GetInt32(), Is.Zero);
+            var withTables = Face(await ToolProcess.Run(["inspect", path, "--format", "json", "--include-table-inventory"]));
+            var inventory = withTables.GetProperty("tableInventory");
+            Assert.That(inventory.GetProperty("status").GetString(), Is.EqualTo("complete"));
+            Assert.That(inventory.GetProperty("entries")[0].GetProperty("tag").GetString(), Is.EqualTo("cvt "));
+        }
+        [Test]
+        public void JsonPreservesGlobalAndSectionLimitReasons() {
+            byte[] data = Sfnt(("name", NameData()), ("fvar", new byte[16]));
+            var inspection = FontMetadataReader.Inspect(data, new FontReadOptions {
+                IncludeVariationAxes = true,
+                Limits = new FontReadLimits { MaxTableBytes = 1 }
+            });
+            using(var output = new MemoryStream()) {
+                using(var writer = new JsonReportWriter(output, new CommandOptions { IncludeVariationAxes = true }, default)) {
+                    writer.Begin();
+                    writer.Write(new SourceResult(new InputSource(null), inspection, null));
+                    writer.End();
+                }
+                using(var report = JsonDocument.Parse(output.ToArray())) {
+                    var result = report.RootElement.GetProperty("results")[0];
+                    var global = result.GetProperty("diagnostics")[0];
+                    var axes = result.GetProperty("metadata").GetProperty("faces")[0].GetProperty("variationAxes");
+                    Assert.That(global.GetProperty("tableTag").GetString(), Is.EqualTo("name"));
+                    Assert.That(global.GetProperty("limitReason").GetString(), Is.EqualTo("MaxTableBytes"));
+                    Assert.That(axes.GetProperty("diagnostics")[0].GetProperty("limitReason").GetString(), Is.EqualTo("MaxTableBytes"));
+                }
+            }
+        }
         [TestCase("--help")]
         [TestCase("-h")]
         [TestCase("inspect", "--help")]

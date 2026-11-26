@@ -2,7 +2,8 @@ namespace Fonts.Metadata {
     /// <summary>An immutable observation located relative to the supplied input slice or stream position.</summary>
     public sealed class FontDiagnostic {
         internal FontDiagnostic(string code, FontDiagnosticSeverity severity, FontDiagnosticCategory category,
-            string message, int? faceIndex = null, string? tableTag = null, long? byteOffset = null, long? tableByteOffset = null) {
+            string message, int? faceIndex = null, string? tableTag = null, long? byteOffset = null, long? tableByteOffset = null, string? limitReason = null) {
+            LimitReason = limitReason;
             Code = code;
             Severity = severity;
             Category = category;
@@ -12,6 +13,8 @@ namespace Fonts.Metadata {
             ByteOffset = byteOffset;
             TableByteOffset = tableByteOffset;
         }
+        /// <summary>Name of the FontReadLimits property that prevented processing, otherwise null.</summary>
+        public string? LimitReason { get; }
         /// <summary>Stable identifier from FontDiagnosticCodes.</summary>
         public string Code { get; }
         /// <summary>Diagnostic severity.</summary>
@@ -29,7 +32,7 @@ namespace Fonts.Metadata {
         /// <summary>Offset within the decoded logical table, when known; never an input-file coordinate.</summary>
         public long? TableByteOffset { get; }
         internal FontDiagnostic ForFace(int index) {
-            return new FontDiagnostic(Code, Severity, Category, Message, index, TableTag, ByteOffset, TableByteOffset);
+            return new FontDiagnostic(Code, Severity, Category, Message, index, TableTag, ByteOffset, TableByteOffset, LimitReason);
         }
     }
 }

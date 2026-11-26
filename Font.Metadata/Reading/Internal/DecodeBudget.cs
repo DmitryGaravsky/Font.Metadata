@@ -2,7 +2,9 @@ using System;
 
 namespace Fonts.Metadata.Internal {
     internal sealed class DecodeLimitException : Exception {
-        internal DecodeLimitException() {
+        internal string Reason { get; }
+        internal DecodeLimitException(string reason) {
+            Reason = reason;
         }
     }
     internal sealed class PayloadWork {
@@ -26,10 +28,18 @@ namespace Fonts.Metadata.Internal {
                 return Math.Max(0, remaining);
             }
         }
+        string BindingLimit() {
+            long total = context.Limits.MaxTotalDecodedBytes - context.DecodedBytes;
+            long ratio = ratioLimit - bytes;
+            long mtx = payload == null ? long.MaxValue : context.Limits.MaxMtxPayloadBytes - payload.Bytes;
+            if(ratio <= total && ratio <= mtx)
+                return nameof(FontReadLimits.MaxExpansionRatio);
+            return mtx < total ? nameof(FontReadLimits.MaxMtxPayloadBytes) : nameof(FontReadLimits.MaxTotalDecodedBytes);
+        }
         internal void CheckDeclared(long length) {
             context.CheckCancellation();
             if(length < 0 || length > Remaining)
-                throw new DecodeLimitException();
+                throw new DecodeLimitException(BindingLimit());
         }
         internal void Charge(int count) {
             context.DecodedBytes += count;
@@ -39,7 +49,7 @@ namespace Fonts.Metadata.Internal {
             context.CheckCancellation();
             if(context.DecodedBytes > context.Limits.MaxTotalDecodedBytes || bytes > ratioLimit ||
                 (payload != null && payload.Bytes > context.Limits.MaxMtxPayloadBytes))
-                throw new DecodeLimitException();
+                throw new DecodeLimitException(BindingLimit());
         }
         internal int OutputSize(int capacity) {
             // One bounded probe distinguishes exact completion from output beyond a limit.

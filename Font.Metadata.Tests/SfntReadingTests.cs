@@ -85,7 +85,7 @@ namespace Fonts.Metadata.Tests {
         }
         [Test]
         public void MissingTablesAreDistinctFromMissingNameIdsAndUnreadableTables() {
-            var empty = FontMetadataReader.Read(Sfnt(("head", new byte[4]))).Faces[0];
+            var empty = FontMetadataReader.Read(Sfnt(("prep", new byte[4]))).Faces[0];
             Assert.That(empty.NameTableStatus, Is.EqualTo(FontSectionStatus.Missing));
             Assert.That(empty.Os2TableStatus, Is.EqualTo(FontSectionStatus.Missing));
             Assert.That(empty.EmbeddingPermissions, Is.Null);

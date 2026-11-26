@@ -23,7 +23,17 @@ Read names, attribution and declared license information from **TrueType/OpenTyp
 
 These capabilities support font catalogs, attribution reviews and metadata collection for audit or SBOM pipelines. Font.Metadata supplies font facts and license evidence; the consuming application owns policy decisions and SBOM generation.
 
-## Compatibility in 1.0.0
+## Font headers and table inventory in 1.1.0
+
+Every face reports the raw OpenType revision, creation and modification times, design units, header flags and style when `head` is readable. The `maxp` table supplies the declared glyph count. Use the optional table inventory to compare physical variants with the same family and version.
+
+```sh
+font-metadata inspect example.woff2 --include-table-inventory --format json
+```
+
+Use `FontDiagnostic.LimitReason` to identify the reader setting behind `FM_LIMIT_EXCEEDED`. See the [reader API](docs/api.md#headers-and-table-inventory) for units and container-specific lengths. Distribution status is available on [NuGet](https://www.nuget.org/packages/Font.Metadata/) and [GitHub Releases](https://github.com/DmitryGaravsky/Font.Metadata/releases).
+
+## Compatibility in 1.x
 
 Starting with 1.0.0, the 1.x library contract preserves source and binary compatibility for supported .NET 10 callers of `Font.Metadata` and `Font.Metadata.Spdx`. The CLI emits JSON with `schemaVersion: 1`. Consumers should read fields by name and ignore additional optional fields. See the [API compatibility policy](docs/api.md#compatibility-and-evolution) and the [JSON v1 contract](docs/cli.md#json-contract-schema-version-1).
 
@@ -35,10 +45,10 @@ License analysis of name records recognizes a documented set of identifiers, nam
 
 Install the `Font.Metadata.Tool` package to get the `font-metadata` command. Use the .NET 10 SDK to install it and the .NET 10 runtime to run it on Windows, Linux or macOS.
 
-The following example uses a NuGet feed containing version 1.0.0.
+The following example uses a NuGet feed containing version 1.1.0.
 
 ```shell
-dotnet tool install --global Font.Metadata.Tool --version 1.0.0
+dotnet tool install --global Font.Metadata.Tool --version 1.1.0
 font-metadata inspect Variable.ttf --include-unicode-coverage --format json
 font-metadata inspect Variable.ttf --include-name-records --analyze-licenses --format json
 font-metadata inspect-license OFL.txt --format json
@@ -48,11 +58,11 @@ For example, with a Roboto Flex font the first command reports a `wght` axis wit
 
 The next two commands show the two sources an auditor can trace. For Roboto Flex, one embedded `OFL-1.1` hint points to the text of name ID 13 on face 0. For the accompanying `OFL.txt`, the `fullText` entry identifies the normative OFL body. Use the reported SHA-256 to identify the file and `sourceStart` and `sourceLength` to locate the exact fragment in the decoded text. The caller records which document belongs with which font.
 
-To try a local 1.0.0 build, run the following commands from the repository root with a fresh package directory and tool directory.
+To try a local 1.1.0 build, run the following commands from the repository root with a fresh package directory and tool directory.
 
 ```shell
-pwsh -File eng/verify.ps1 -Version 1.0.0 -PackageDirectory artifacts/local-packages
-dotnet tool install --tool-path artifacts/local-tool --source artifacts/local-packages Font.Metadata.Tool --version 1.0.0
+pwsh -File eng/verify.ps1 -Version 1.1.0 -PackageDirectory artifacts/local-packages
+dotnet tool install --tool-path artifacts/local-tool --source artifacts/local-packages Font.Metadata.Tool --version 1.1.0
 ./artifacts/local-tool/font-metadata inspect Example.ttf --format json
 ```
 
@@ -72,10 +82,10 @@ dotnet run --project Font.Metadata.Tool --no-restore -- inspect Example.woff2 --
 
 Package: `Font.Metadata`. Namespace: `Fonts.Metadata`.
 
-Add the library to a .NET 10 project using a feed containing version 1.0.0.
+Add the library to a .NET 10 project using a feed containing version 1.1.0.
 
 ```shell
-dotnet add package Font.Metadata --version 1.0.0
+dotnet add package Font.Metadata --version 1.1.0
 ```
 
 For a local build, use the verified package directory as the NuGet source.

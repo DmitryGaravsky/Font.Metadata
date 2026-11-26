@@ -48,7 +48,7 @@ namespace Fonts.Metadata.Internal {
             if(reader.EudcStart.HasValue && facts.EudcSize > 0) {
                 if(context.Limits.MaxFaces < 2) {
                     context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, reader.EudcStart, 1,
-                        category: FontDiagnosticCategory.LimitExceeded);
+                        category: FontDiagnosticCategory.LimitExceeded, limitReason: nameof(FontReadLimits.MaxFaces));
                 }
                 else {
                     int offset = reader.EudcStart.Value;
@@ -103,9 +103,9 @@ namespace Fonts.Metadata.Internal {
                     }
                 }
             }
-            catch(DecodeLimitException) {
+            catch(DecodeLimitException ex) {
                 context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, offset, index,
-                    category: FontDiagnosticCategory.LimitExceeded);
+                    category: FontDiagnosticCategory.LimitExceeded, limitReason: ex.Reason);
                 AddUnavailable(index, kind, FontSectionStatus.NotRead, context);
             }
         }
@@ -247,7 +247,7 @@ namespace Fonts.Metadata.Internal {
                     length > context.Limits.MaxTotalNameStringBytes - context.NameStringBytes) {
                     Incomplete = true;
                     context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, start,
-                        category: FontDiagnosticCategory.LimitExceeded);
+                        category: FontDiagnosticCategory.LimitExceeded, limitReason: length > context.Limits.MaxNameStringBytes - stringBytes ? nameof(FontReadLimits.MaxNameStringBytes) : nameof(FontReadLimits.MaxTotalNameStringBytes));
                     return null;
                 }
                 stringBytes += length;

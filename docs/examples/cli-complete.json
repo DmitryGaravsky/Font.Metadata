@@ -3,7 +3,8 @@
   "options": {
     "includeNameRecords": true,
     "analyzeLicenses": true,
-    "maxInputBytes": 134217728
+    "maxInputBytes": 134217728,
+    "includeTableInventory": true
   },
   "results": [
     {
@@ -23,6 +24,54 @@
             "sfntFlavor": 65536,
             "nameTableStatus": "complete",
             "os2TableStatus": "complete",
+            "headTableStatus": "complete",
+            "maxpTableStatus": "complete",
+            "glyphCount": 3,
+            "head": {
+              "fontRevision": 98304,
+              "created": 3654075127,
+              "modified": 3782990756,
+              "unitsPerEm": 2048,
+              "flags": 1,
+              "macStyle": 0
+            },
+            "tableInventory": {
+              "status": "complete",
+              "entries": [
+                {
+                  "tag": "OS/2",
+                  "length": 78,
+                  "storedLength": 78,
+                  "isCompressed": false,
+                  "isTransformed": false,
+                  "transformVersion": null
+                },
+                {
+                  "tag": "head",
+                  "length": 54,
+                  "storedLength": 54,
+                  "isCompressed": false,
+                  "isTransformed": false,
+                  "transformVersion": null
+                },
+                {
+                  "tag": "maxp",
+                  "length": 6,
+                  "storedLength": 6,
+                  "isCompressed": false,
+                  "isTransformed": false,
+                  "transformVersion": null
+                },
+                {
+                  "tag": "name",
+                  "length": 50,
+                  "storedLength": 50,
+                  "isCompressed": false,
+                  "isTransformed": false,
+                  "transformVersion": null
+                }
+              ]
+            },
             "vendorId": "TEST",
             "embeddingPermissions": 0,
             "familyName": "Example",

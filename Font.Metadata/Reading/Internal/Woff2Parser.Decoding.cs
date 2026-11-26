@@ -13,6 +13,7 @@ namespace Fonts.Metadata.Internal {
             bool complete = false;
             var stopped = FontSectionStatus.Invalid;
             var selected = new SortedSet<int>();
+            var headers = new SortedSet<int>();
             var optional = new SortedSet<int>();
             foreach(var face in faces) {
                 if(face.Failure.HasValue)
@@ -20,6 +21,8 @@ namespace Fonts.Metadata.Internal {
                 foreach(var pair in face.Tables) {
                     if(ContainerLayout.IsMetadata(pair.Key) && pair.Value >= 0)
                         selected.Add(pair.Value);
+                    else if((pair.Key == ContainerLayout.HeadTag || pair.Key == ContainerLayout.MaxpTag) && pair.Value >= 0)
+                        headers.Add(pair.Value);
                     else if(context.WantsOptionalTable(pair.Key) && pair.Value >= 0)
                         optional.Add(pair.Value);
                 }
@@ -36,6 +39,7 @@ namespace Fonts.Metadata.Internal {
                     // Reserve baseline tables first, even when an optional table occurs earlier in the stream.
                     var allocationOrder = new List<int>(selected);
                     allocationOrder.AddRange(optional);
+                    allocationOrder.AddRange(headers);
                     foreach(int index in allocationOrder) {
                         context.CheckCancellation();
                         var table = entries[index];
@@ -45,15 +49,15 @@ namespace Fonts.Metadata.Internal {
                         }
                         try {
                             if(table.Original > context.Limits.MaxTableBytes)
-                                throw new DecodeLimitException();
+                                throw new DecodeLimitException(nameof(FontReadLimits.MaxTableBytes));
                             table.Buffer = new DecodedBuffer(context, (int)table.Original);
                             buffers.Add(table);
                         }
-                        catch(DecodeLimitException) {
+                        catch(DecodeLimitException ex) {
                             table.Failure = FontSectionStatus.NotRead;
                             table.FailureDiagnostic = new FontDiagnostic(FontDiagnosticCodes.LimitExceeded,
                                 FontDiagnosticSeverity.Error, FontDiagnosticCategory.LimitExceeded, ContainerMessages.Limit,
-                                tableTag: ContainerLayout.TagText(table.Tag), byteOffset: table.Record);
+                                tableTag: ContainerLayout.TagText(table.Tag), byteOffset: table.Record, limitReason: ex.Reason);
                         }
                     }
                     // Even with no selected tables, consume and validate the entire Brotli stream.
@@ -63,10 +67,10 @@ namespace Fonts.Metadata.Internal {
                     if(available != compressedLength)
                         throw new InvalidDataException(ContainerMessages.Compression);
                 }
-                catch(DecodeLimitException) {
+                catch(DecodeLimitException ex) {
                     stopped = FontSectionStatus.NotRead;
                     context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, start,
-                        category: FontDiagnosticCategory.LimitExceeded);
+                        category: FontDiagnosticCategory.LimitExceeded, limitReason: ex.Reason);
                 }
                 catch(InvalidDataException) {
                     context.Error(FontDiagnosticCodes.InvalidCompressedData, ContainerMessages.Compression, start);
@@ -87,7 +91,29 @@ namespace Fonts.Metadata.Internal {
                 var os2 = GetMetadata(face, ContainerLayout.Os2Tag, entries, source, complete, stopped, context);
                 var cmap = context.IncludeUnicodeCoverage ? GetMetadata(face, ContainerLayout.CmapTag, entries, source, complete, stopped, context) : null;
                 var fvar = context.IncludeVariationAxes ? GetMetadata(face, ContainerLayout.FvarTag, entries, source, complete, stopped, context) : null;
-                var result = context.CreateFace(face.Index, face.Flavor, names, os2, face.Valid, cmap: cmap, fvar: fvar);
+                var head = GetMetadata(face, ContainerLayout.HeadTag, entries, source, complete, stopped, context);
+                var maxp = GetMetadata(face, ContainerLayout.MaxpTag, entries, source, complete, stopped, context);
+                FontTableInventory? inventory = null;
+                if(context.IncludeTableInventory) {
+                    var declarations = new List<FontTableEntry>();
+                    foreach(int reference in face.Tables.Values) {
+                        context.CheckCancellation();
+                        if(reference < 0)
+                            continue;
+                        var t = entries[reference];
+                        // WOFF2 section 4.1: glyf/loca version 3 is the null transform.
+                        bool transformed = t.Tag == ContainerLayout.GlyfTag || t.Tag == ContainerLayout.LocaTag
+                            ? t.Transform != 3 : t.Transform != 0;
+                        declarations.Add(new FontTableEntry(ContainerLayout.TagText(t.Tag), t.Original, t.Stored, false, t.Transform, transformed));
+                    }
+                    // An unresolved reference or an ambiguous tag leaves a gap in the inventory.
+                    // Unsupported transforms still have a readable declaration.
+                    bool completeDirectory = face.AbsenceKnown && declarations.Count == face.Tables.Count;
+                    var status = face.Failure ?? ContainerLayout.InventoryStatus(completeDirectory, declarations.Count);
+                    inventory = new FontTableInventory(status, declarations);
+                }
+                var result = context.CreateFace(face.Index, face.Flavor, names, os2, face.Valid, cmap: cmap, fvar: fvar,
+                    head: head, maxp: maxp, inventory: inventory);
                 context.Faces.Add(result);
             }
         }

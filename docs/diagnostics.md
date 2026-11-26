@@ -5,18 +5,18 @@
 | FontReadStatus | Meaning |
 | --- | --- |
 | NotRecognized | No recognized signature at the supplied origin; Metadata is null |
-| Complete | The container and baseline metadata (name, OS/2 and applicable EOT data) were processed without loss. Optional sections report their own status. |
+| Complete | The container and baseline metadata (name, OS/2, head, maxp and applicable EOT data) were processed without loss. Optional sections report their own status. |
 | Partial | Usable metadata survives malformed data, an unsupported feature or a limit |
 | Failed | A data failure or resource limit prevented usable metadata extraction |
 | Unsupported | A recognized format, version or encoding is unavailable, without usable metadata |
 
 A recognized container normally supplies a `FontMetadata` object even if its Faces collection is empty. An oversized unrecognized input returns Failed with null Metadata because the input limit takes precedence over parsing. Container recognition or a placeholder face alone does not count as usable extracted metadata.
 
-A readable table (including a valid empty name table) counts as processed metadata. A valid face directory proving both name and OS/2 absent can also be Complete. Missing fields should always be interpreted alongside table statuses.
+A readable table (including a valid empty name table) counts as processed metadata. A valid face directory proving all four baseline tables absent can also be Complete. With name and OS/2 absent, a lone damaged head or maxp yields Failed, while another readable baseline table can yield Partial. Inspection exposes verified header fields even when an earlier name, OS/2 or directory failure retains its 1.0 classification as Failed or Unsupported. Strict reading preserves the corresponding exception type. Missing fields should always be interpreted alongside table statuses.
 
 ## Per-table status
 
-Each face exposes `NameTableStatus` and `Os2TableStatus`. When inspecting Unicode coverage or variation axes, also read `UnicodeCoverage.Status` or `VariationAxes.Status` and the corresponding section diagnostics.
+Each face exposes `NameTableStatus`, `Os2TableStatus`, `HeadTableStatus` and `MaxpTableStatus`. When requested, `TableInventory.Status` describes the completeness of the directory declarations. When inspecting Unicode coverage or variation axes, also read `UnicodeCoverage.Status` or `VariationAxes.Status` and the corresponding section diagnostics.
 
 For example, `font-metadata inspect symbols.ttc --include-unicode-coverage --format json` can exit with code 0 and report a file `status` of `complete`. A face with only a Windows symbol cmap reports `unicodeCoverage.status` of `unsupported` and the section diagnostic `FM_UNSUPPORTED_CMAP_SUBTABLE`. A face in the same collection with no cmap reports `missing`.
 
@@ -91,3 +91,9 @@ Decoded offsets are never added to a compressed anchor. Both coordinates remain 
 The optional cmap and fvar sections share any remaining slots. Their last available slot carries a suppression marker on overflow. If the inspection list has used every slot, the section lists are empty. Suppression preserves each section's reading status. Faces sharing a table refer to the same section. The CLI projects that section under each referencing face.
 
 Expected malformed-data failures produce results through Inspect. Invalid arguments, cancellation, I/O failures and unexpected runtime errors still throw. Read applies strict success semantics to the same result and retains it on the appropriate exception; see [API](api.md).
+
+## Header tables and limit reasons
+
+`FM_INVALID_HEAD_TABLE` and `FM_INVALID_MAXP_TABLE` mark truncated or malformed headers. `FM_UNSUPPORTED_TABLE_VERSION` identifies an unknown version. `FM_NONCONFORMANT_HEAD` warns about unitsPerEm outside 16–16384. Diagnostics carry the face index, table tag, source offset or compressed-block anchor, and decoded table offset where available.
+
+For `FM_LIMIT_EXCEEDED`, `FontDiagnostic.LimitReason` gives the exact property name from `FontReadLimits`, such as `MaxExpansionRatio`, `MaxTotalDecodedBytes` or `MaxRetainedDecodedBytes`. When several decompression budgets are exhausted together, the smallest remaining allowance is reported, with expansion ratio first on a tie. Other diagnostic codes can omit this field.

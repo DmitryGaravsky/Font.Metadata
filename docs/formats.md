@@ -4,11 +4,13 @@
 
 | Container | Recognized signature/version | Metadata extracted |
 | --- | --- | --- |
-| SFNT | 0x00010000, OTTO, true, typ1 | One face; name and OS/2 |
+| SFNT | 0x00010000, OTTO, true, typ1 | One face with name, OS/2, head and maxp metadata |
 | TTC/OTC | ttcf, version 1.0 or 2.0 | Faces in source order; shared table support |
-| WOFF | wOFF | Raw or zlib-compressed name and OS/2, independently |
-| WOFF2 | wOF2 | Single fonts and collections; shared name/OS2 in a streamed Brotli payload |
+| WOFF | wOFF | Independent raw or zlib-compressed name, OS/2, head and maxp tables |
+| WOFF2 | wOF2 | Single fonts and collections with shared tables in a streamed Brotli payload, including name, OS/2, head and maxp |
 | EOT | Versions 0x00010000, 0x00020001, 0x00020002 at byte 8; magic 0x504C at byte 34, little-endian | Separate header; main/EUDC SFNT/CTF, raw/XOR/MTX with LZCOMP and optional RLE |
+
+All five readers expose an optional per-face table inventory in directory order. Collections report the declarations referenced by each face.
 
 Recognition only identifies a candidate container; a recognizable truncated header may fail parsing. Inputs without a recognized leading signature return `NotRecognized`. File extensions do not select a parser.
 
@@ -89,7 +91,7 @@ A readable fsType survives a truncated or malformed vendor identifier. Vendor by
 
 Variable and color fonts can supply the supported name/OS/2 metadata. The CLI shows design axes for faces with an fvar directory entry. Named instances, variation programs and color glyph data are outside the reader’s scope. General table enumeration and WOFF/WOFF2 XML metadata extraction are also unavailable.
 
-This is a metadata reader, not a rasterizer or comprehensive OpenType validator. It accepts metadata-only synthetic fonts and does not require head, cmap, glyph outlines or a family string. It does not validate glyph programs, SFNT table checksums, searchRange fields, DSIG signatures or full OS/2 metric layouts. It does not validate all table relationships between different TTC faces, beyond inspected directory protection and exact shared metadata reuse.
+This is a metadata reader, not a rasterizer or comprehensive OpenType validator. It accepts metadata-only synthetic fonts and permits absent metadata tables, glyph outlines and family names. It does not validate glyph programs, SFNT table checksums, searchRange fields, DSIG signatures or full OS/2 metric layouts. It does not validate all table relationships between different TTC faces, beyond inspected directory protection and exact shared metadata reuse.
 
 `Complete` therefore does not certify a font for rendering, embedding, licensing or trust. Missing supported tables can be represented accurately by a complete result. Truncation, unsupported metadata features and configured limits are distinguished through [statuses and diagnostics](diagnostics.md).
 
@@ -102,3 +104,7 @@ This is a metadata reader, not a rasterizer or comprehensive OpenType validator.
 - [MTX submission](https://www.w3.org/submissions/MTX/)
 - [Naming table](https://learn.microsoft.com/en-us/typography/opentype/spec/name)
 - [OS/2 table](https://learn.microsoft.com/en-us/typography/opentype/spec/os2)
+
+## OpenType headers
+
+Each face reads version 1.0 of [head](https://learn.microsoft.com/typography/opentype/spec/head) and versions 0.5 and 1.0 of [maxp](https://learn.microsoft.com/typography/opentype/spec/maxp). Missing tables leave the overall status unchanged. A short head (54 bytes required), invalid magic, or short maxp (6 or 32 bytes according to version) invalidates that section. Unknown versions produce Unsupported. An out-of-range unitsPerEm is retained with a warning. Damaged sections can make the result Partial when other facts survive. TTC and WOFF2 collections reuse shared tables. EOT exposes the fields independently for main and EUDC faces. The optional inventory uses the existing directory validation and requires no additional table decompression. In WOFF a header or padding error can coexist with a Complete inventory when all directory records remain unambiguous. Conflicting ranges are omitted. In WOFF2 the directory precedes the Brotli stream and can remain Complete on stream failure. An unknown transform preserves the declared lengths and transform version. The inventory remains Complete when all references resolve unambiguously. Duplicate tags and unresolved references leave the inventory incomplete. For MTX a complete first stream recovered after a later stream failure supplies Partial CTF metadata, including its directory.

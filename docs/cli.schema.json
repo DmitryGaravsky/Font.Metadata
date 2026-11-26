@@ -28,6 +28,9 @@
         },
         "includeVariationAxes": {
           "const": true
+        },
+        "includeTableInventory": {
+          "const": true
         }
       },
       "required": [
@@ -261,6 +264,10 @@
           ],
           "minimum": 0,
           "maximum": 9223372036854775807
+        },
+        "limitReason": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -419,6 +426,33 @@
         },
         "variationAxes": {
           "$ref": "#/$defs/variationAxes"
+        },
+        "headTableStatus": {
+          "$ref": "#/$defs/section"
+        },
+        "head": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/head"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maxpTableStatus": {
+          "$ref": "#/$defs/section"
+        },
+        "glyphCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "tableInventory": {
+          "$ref": "#/$defs/tableInventory"
         }
       },
       "required": [
@@ -1306,6 +1340,109 @@
         "axes",
         "diagnostics"
       ]
+    },
+    "head": {
+      "type": "object",
+      "properties": {
+        "fontRevision": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "created": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        },
+        "modified": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        },
+        "unitsPerEm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "flags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "macStyle": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      },
+      "required": [
+        "fontRevision",
+        "created",
+        "modified",
+        "unitsPerEm",
+        "flags",
+        "macStyle"
+      ]
+    },
+    "tableEntry": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 4
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "storedLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "isCompressed": {
+          "type": "boolean"
+        },
+        "isTransformed": {
+          "type": "boolean"
+        },
+        "transformVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 3
+        }
+      },
+      "required": [
+        "tag",
+        "length",
+        "storedLength",
+        "isCompressed",
+        "isTransformed",
+        "transformVersion"
+      ]
+    },
+    "tableInventory": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/section"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tableEntry"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "entries"
+      ]
     }
   },
   "allOf": [
@@ -1615,6 +1752,69 @@
                               }
                             }
                           }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "options": {
+            "required": [
+              "includeTableInventory"
+            ],
+            "properties": {
+              "includeTableInventory": {
+                "const": true
+              }
+            }
+          }
+        },
+        "required": [
+          "options"
+        ]
+      },
+      "then": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "required": [
+                          "tableInventory"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "results": {
+            "items": {
+              "properties": {
+                "metadata": {
+                  "properties": {
+                    "faces": {
+                      "items": {
+                        "not": {
+                          "required": [
+                            "tableInventory"
+                          ]
                         }
                       }
                     }

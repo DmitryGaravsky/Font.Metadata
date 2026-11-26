@@ -53,10 +53,10 @@ namespace Fonts.Metadata.Internal {
                         else
                             decoded.Dispose();
                     }
-                    catch(DecodeLimitException) {
+                    catch(DecodeLimitException ex) {
                         result.Limited = true;
                         context.Error(FontDiagnosticCodes.LimitExceeded, ContainerMessages.Limit, source.Map(offsets[index]), face,
-                            category: FontDiagnosticCategory.LimitExceeded);
+                            category: FontDiagnosticCategory.LimitExceeded, limitReason: ex.Reason);
                         return result;
                     }
                     catch(Exception ex)

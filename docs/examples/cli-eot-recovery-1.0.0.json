@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "options": {
+    "includeNameRecords": true,
+    "analyzeLicenses": true,
+    "maxInputBytes": 134217728
+  },
+  "results": [
+    {
+      "source": {
+        "kind": "file",
+        "path": "Recovery.eot"
+      },
+      "status": "partial",
+      "metadata": {
+        "format": "eot",
+        "eotHeaderStatus": "complete",
+        "eot": {
+          "formatVersion": 131074,
+          "flags": 32,
+          "embeddingPermissions": 2,
+          "familyName": "Header family",
+          "styleName": "Regular",
+          "fullName": "Header full name",
+          "version": "Header version",
+          "eudcCodePage": 0,
+          "eudcFlags": 0,
+          "eudcFontDataSize": 174
+        },
+        "faces": [
+          {
+            "index": 0,
+            "source": "eotMain",
+            "sfntFlavor": null,
+            "nameTableStatus": "notRead",
+            "os2TableStatus": "notRead",
+            "vendorId": null,
+            "embeddingPermissions": null,
+            "familyName": null,
+            "subfamilyName": null,
+            "fullName": null,
+            "postScriptName": null,
+            "version": null,
+            "copyright": null,
+            "trademark": null,
+            "manufacturer": null,
+            "designer": null,
+            "description": null,
+            "vendorUrl": null,
+            "designerUrl": null,
+            "licenseDescription": null,
+            "licenseUrl": null,
+            "nameRecords": [],
+            "licenseAnalysis": {
+              "isSourceComplete": false,
+              "hints": []
+            }
+          },
+          {
+            "index": 1,
+            "source": "eotEudc",
+            "sfntFlavor": 65536,
+            "nameTableStatus": "complete",
+            "os2TableStatus": "complete",
+            "vendorId": "TEST",
+            "embeddingPermissions": 0,
+            "familyName": "Example",
+            "subfamilyName": null,
+            "fullName": null,
+            "postScriptName": null,
+            "version": null,
+            "copyright": null,
+            "trademark": null,
+            "manufacturer": null,
+            "designer": null,
+            "description": null,
+            "vendorUrl": null,
+            "designerUrl": null,
+            "licenseDescription": "MIT",
+            "licenseUrl": null,
+            "nameRecords": [
+              {
+                "index": 0,
+                "nameId": 1,
+                "platformId": 3,
+                "encodingId": 1,
+                "languageId": 1033,
+                "languageTag": null,
+                "value": "Example"
+              },
+              {
+                "index": 1,
+                "nameId": 13,
+                "platformId": 3,
+                "encodingId": 1,
+                "languageId": 1033,
+                "languageTag": null,
+                "value": "MIT"
+              }
+            ],
+            "licenseAnalysis": {
+              "isSourceComplete": true,
+              "hints": [
+                {
+                  "identifier": "MIT",
+                  "identifierKind": "spdx",
+                  "ruleId": "FLA001",
+                  "sourceRecord": {
+                    "index": 1,
+                    "nameId": 13,
+                    "platformId": 3,
+                    "encodingId": 1,
+                    "languageId": 1033,
+                    "languageTag": null,
+                    "value": "MIT"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "diagnostics": [
+        {
+          "code": "FM_INVALID_DIRECTORY",
+          "severity": "error",
+          "category": "malformedData",
+          "message": "The face header is outside the input or inside the collection header.",
+          "faceIndex": 0,
+          "tableTag": null,
+          "byteOffset": 394,
+          "tableByteOffset": null
+        }
+      ]
+    }
+  ]
+}

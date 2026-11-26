@@ -74,7 +74,7 @@ The repository and all three packages use the [MIT License](../LICENSE). All thr
 
 This is a personal project by [Dmitry Garavsky](https://github.com/DmitryGaravsky/). All three packages identify Dmitry Garavsky as author and copyright holder. Package project and repository URLs point to [Font.Metadata on GitHub](https://github.com/DmitryGaravsky/Font.Metadata).
 
-All three packages will be published under the personal NuGet account [DmitryGaravsky](https://www.nuget.org/profiles/DmitryGaravsky). Before the first public release, confirm all three package IDs are available or owned by this account and that package metadata uses the correct repository URL. Package author metadata identifies Dmitry Garavsky; NuGet ownership is managed by the account.
+Before publishing a version, confirm that the [DmitryGaravsky NuGet account](https://www.nuget.org/profiles/DmitryGaravsky) and its Trusted Publishing policy have permission to update all three existing packages. Check available versions on NuGet for [Font.Metadata](https://www.nuget.org/packages/Font.Metadata/), [Font.Metadata.Spdx](https://www.nuget.org/packages/Font.Metadata.Spdx/) and [Font.Metadata.Tool](https://www.nuget.org/packages/Font.Metadata.Tool/). The [release workflow runs](https://github.com/DmitryGaravsky/Font.Metadata/actions/workflows/release.yml) and [GitHub Releases](https://github.com/DmitryGaravsky/Font.Metadata/releases) show hosted verification and downloadable assets.
 
 1. Confirm that release.yml is present in the candidate revision and GitHub Actions is enabled. Restrict actions to checkout, setup-dotnet, upload-artifact, download-artifact and NuGet/login, and require full commit SHAs. Disable immutable releases in the repository release settings before publishing a release with an empty asset list. The workflow attaches verified files after the release becomes public.
 2. Create a GitHub Actions environment named **nuget**. In its deployment rules, allow tags matching `v*`. Set DmitryGaravsky as the required reviewer, allow self-review and disable administrator bypass.
@@ -98,10 +98,10 @@ See [NuGet Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org
 ## Prepare locally
 
 ```powershell
-pwsh -File eng/prepare-release.ps1 -Tag v1.0.0
+pwsh -File eng/prepare-release.ps1 -Tag v1.1.0
 ```
 
-This performs the checks and writes `artifacts/release/1.0.0/`. It does not create a tag, contact publishing endpoints or publish files. Restore may download build dependencies from nuget.org. A local Git tag is not required.
+This performs the checks and writes `artifacts/release/1.1.0/`. It does not create a tag, contact publishing endpoints or publish files. Restore may download build dependencies from nuget.org. A local Git tag is not required.
 
 ## Initiate a release
 
@@ -113,8 +113,8 @@ This performs the checks and writes `artifacts/release/1.0.0/`. It does not crea
 Once the workflow finishes and NuGet indexing completes:
 
 ```shell
-dotnet add package Font.Metadata --version 1.0.0
-dotnet tool install --global Font.Metadata.Tool --version 1.0.0
+dotnet add package Font.Metadata --version 1.1.0
+dotnet tool install --global Font.Metadata.Tool --version 1.1.0
 ```
 
 ## Recover from a failed release

@@ -30,6 +30,7 @@ Inspection is explicit; a bare filename is not a command. No arguments display h
 | `--analyze-spdx` | off | Independent whole-record SPDX expression attempts, native outcomes and source evidence |
 | `--include-unicode-coverage` | off | Per-face cmap selection, section status and inclusive Unicode scalar ranges |
 | `--include-variation-axes` | declared tables only | Report fvar status for every face, including missing or unreadable directories |
+| `--include-table-inventory` | off | Per-face directory status and entries with tags, lengths and transform information |
 | `--max-input-bytes N` | 134217728 | Maximum bytes per source; other library decoding limits still apply |
 
 Values must be separate arguments; `--format=json`, aliases, repeated options and mixed help/inspection requests are invalid. N is ASCII decimal digits without signs, separators or suffixes, in 1..Array.MaxLength-1. Leading zeros are allowed. At least one source is required. All arguments are validated before any input is opened.
@@ -62,7 +63,7 @@ Plain reports show source, status, format, EOT header facts, faces, preferred fi
 
 ## JSON contract, schema version 1
 
-See the machine-readable [JSON Schema](cli.schema.json), a [complete report](examples/cli-complete.json), and an [EOT recovery report](examples/cli-eot-recovery.json). Examples are validated with the package smoke tests.
+The [complete report with table inventory](examples/cli-complete.json) and the [EOT recovery report](examples/cli-eot-recovery.json) show the output of 1.1.0. The [1.0.0 report for the same EOT input](examples/cli-eot-recovery-1.0.0.json) illustrates schema-v1 compatibility. Package smoke tests validate all examples against the [JSON Schema](cli.schema.json).
 
 Output is one UTF-8 JSON object without BOM, indented by two spaces and terminated by a newline, even for multiple inputs. No banners, timestamps, stack traces or resolved absolute paths are added. Property order is deterministic for readability; consumers must not depend on it.
 
@@ -77,7 +78,7 @@ Removing or renaming an existing field, changing its type or meaning, or emittin
 | Root field | Meaning |
 | --- | --- |
 | schemaVersion | 1 |
-| options | `includeNameRecords`, `analyzeLicenses` and `maxInputBytes` are always present. `analyzeSpdx`, `includeUnicodeCoverage` and `includeVariationAxes` are present and true only for their explicit flags. |
+| options | `includeNameRecords`, `analyzeLicenses` and `maxInputBytes` are always present. `analyzeSpdx`, `includeUnicodeCoverage`, `includeVariationAxes` and `includeTableInventory` are present and true only for their explicit flags. |
 | spdxContext | Present only with --analyze-spdx: recognition/syntax profiles, registry identity and analysis limits |
 | results | Nonempty array in argv order |
 
@@ -92,13 +93,15 @@ EOT fields, all nullable: formatVersion, flags (uint32), embeddingPermissions (u
 Every face has:
 
 - index (original nonnegative index), source (container/eotMain/eotEudc), sfntFlavor (nullable uint32).
-- nameTableStatus and os2TableStatus.
+- `nameTableStatus`, `os2TableStatus`, `headTableStatus` and `maxpTableStatus`.
+- `head` (nullable object of raw header fields) and `glyphCount` (nullable uint16).
 - vendorId (nullable string), embeddingPermissions (nullable uint16 raw fsType).
 - Nullable strings: familyName, subfamilyName, fullName, postScriptName, version, copyright, trademark, manufacturer, designer, description, vendorUrl, designerUrl, licenseDescription, licenseUrl.
 
 All documented nullable properties are present as null; zero, false, empty string and null remain distinct. Arrays are never null. The following face properties are conditional.
 
 - `variationAxes`, present for a declared fvar entry by default and for every face with `--include-variation-axes`.
+- `tableInventory`, present for every face with `--include-table-inventory`, with its own status and ordered entries.
 - `unicodeCoverage`, present for every face with `--include-unicode-coverage`.
 - `nameRecords`, present with --include-name-records, including an empty array for unavailable records.
 - `licenseAnalysis`, present with --analyze-licenses, including for placeholder faces.
@@ -108,7 +111,7 @@ The opt-in SPDX extension also adds `options.analyzeSpdx=true` and root `spdxCon
 
 Name records contain index, nameId, platformId, encodingId, languageId, nullable languageTag and unmodified value. Source indexes may have gaps and are not array positions. Unknown name IDs, duplicates, whitespace and NULs survive JSON decoding unchanged.
 
-Diagnostics contain code, severity (warning/error), category, message, and nullable faceIndex, tableTag, byteOffset, tableByteOffset. Reader categories are malformedData/limitExceeded/unsupportedFeature/unsupportedEncoding/nonConformantData. Per-source I/O uses code CLI_IO_ERROR, category io, severity error, null context fields and metadata=null. The schema rejects empty result batches, metadata on ioError/notRecognized, and ioError without its diagnostic. OS-specific I/O message wording may vary. Reader diagnostics retain their original order and suppression marker.
+Diagnostics contain code, severity (warning/error), category, message, and nullable faceIndex, tableTag, byteOffset, tableByteOffset. `FM_LIMIT_EXCEEDED` includes the reader setting in `limitReason`. Reader categories are malformedData/limitExceeded/unsupportedFeature/unsupportedEncoding/nonConformantData. Per-source I/O uses code CLI_IO_ERROR, category io, severity error, null context fields and metadata=null. The schema rejects empty result batches, metadata on ioError/notRecognized, and ioError without its diagnostic. OS-specific I/O message wording may vary. Reader diagnostics retain their original order and suppression marker.
 
 ## License evidence
 
@@ -209,3 +212,7 @@ Document-level codes are `CLI_IO_ERROR`, `CLI_LICENSE_INPUT_LIMIT`, `CLI_LICENSE
 | `validation` | Native validation summary on parse success, null otherwise |
 
 `validation` contains `hasIdentifierErrors`, `hasUnresolvedReferences`, `diagnosticsTruncated`, `identifierOccurrences`, `references` and `diagnostics`. An occurrence has `identifier`, `role` (`license` or `exception`), `lookupStatus` (`known`, `unknown` or `wrongKind`), nullable `canonicalIdentifier`, nullable `isDeprecated` and `span`. A reference has nullable `documentId`, `licenseId` and `span`. Validation diagnostics use the same fields as parse diagnostics. Native `span` objects have `start` and `length` in UTF-16 code units relative to `expressionText`. Add `expressionStart` to locate the span in the document.
+
+## Header and directory output
+
+`inspect` emits `headTableStatus`, `head`, `maxpTableStatus` and `glyphCount` per face. JSON uses signed integers for the raw revision and LONGDATETIME fields. Use an integer-preserving JSON reader for timestamps outside the precise integer range of binary64. Add `--include-table-inventory` to include `tableInventory.status` and its ordered `entries` with `tag`, `length`, `storedLength`, `isCompressed`, `isTransformed` and `transformVersion`. The JSON schema version remains 1. Diagnostics for exhausted reader budgets include `limitReason`.
